@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Master Roles')
+@section('page_title', 'Master Roles')
 
 @section('content')
 

@@ -41,9 +41,9 @@ class RptLampGlassController extends Controller
     public function approve($id)
     {
         $doc = LSLampGlassHeader::findOrFail($id);
-        $doc->checked_by = auth()->user()->name ?? 'System';
+        $doc->checked_by = auth()->user()->username ?? auth()->user()->name;
         $doc->checked_date = now();
-        $doc->checked_status = 'approved';
+        $doc->checked_status = 'Approved';
         $doc->save();
 
         return back()->with('success', 'Document approved successfully.');
@@ -52,9 +52,9 @@ class RptLampGlassController extends Controller
     public function reject($id)
     {
         $doc = LSLampGlassHeader::findOrFail($id);
-        $doc->checked_by = auth()->user()->name ?? 'System';
+        $doc->checked_by = auth()->user()->username ?? auth()->user()->name;
         $doc->checked_date = now();
-        $doc->checked_status = 'rejected';
+        $doc->checked_status = 'Rejected';
         $doc->save();
 
         return back()->with('success', 'Document rejected successfully.');
@@ -128,7 +128,31 @@ class RptLampGlassController extends Controller
 
     public function exportLayoutPreview(Request $request)
     {
+        // Ambil filter tanggal jika ada, default ambil bulan ini
+        $tanggalAwal = $request->input('filter_tanggal_awal', now()->startOfMonth()->format('Y-m-d'));
+        $tanggalAkhir = $request->input('filter_tanggal_akhir', now()->endOfMonth()->format('Y-m-d'));
 
-        return view('rpt_lamp_glass.preview');
+        // Ambil semua header beserta detail di rentang tanggal
+        $documents = LSLampGlassHeader::with('details')
+            ->whereBetween('check_date', [
+                \Carbon\Carbon::parse($tanggalAwal)->startOfDay(),
+                \Carbon\Carbon::parse($tanggalAkhir)->endOfDay()
+            ])
+            ->orderBy('check_date', 'asc')
+            ->get();
+
+        // Ambil tanggal unik dari data header untuk kolom tabel
+        $uniqueDates = $documents->pluck('check_date')
+            ->map(fn($d) => \Carbon\Carbon::parse($d)->format('Y-m-d'))
+            ->unique()
+            ->sort()
+            ->values();
+
+        // Tentukan month & year dari tanggal pertama
+        $firstDate = $uniqueDates->first();
+        $month = $firstDate ? \Carbon\Carbon::parse($firstDate)->format('F') : '';
+        $year  = $firstDate ? \Carbon\Carbon::parse($firstDate)->format('Y') : '';
+
+        return view('rpt_lamp_glass.preview', compact('documents', 'uniqueDates', 'month', 'year'));
     }
 }

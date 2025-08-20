@@ -13,8 +13,8 @@ class LoginController extends Controller
 {
     public function showLoginForm()
     {
-        $businessUnits = MBusinessUnit::all();   // ambil semua business unit
-        $plants = MPlant::all();                 // ambil semua plant
+        $businessUnits = MBusinessUnit::all(); // ambil semua business unit
+        $plants = MPlant::all();               // ambil semua plant
 
         return view('auth.login', compact('businessUnits', 'plants'));
     }
@@ -29,28 +29,36 @@ class LoginController extends Controller
             'plant' => 'required|string',
         ]);
 
-        // Ambil username & password dari input
         $credentials = $request->only('username', 'password');
 
         if (Auth::attempt($credentials)) {
-            // Simpan pilihan ke session
-            session([
-                'business_unit' => $request->business_unit,
-                'plant' => $request->plant,
+
+            // Ambil data business unit
+            $bu = MBusinessUnit::where('bu_code', $request->business_unit)->first();
+
+            // Ambil data plant
+            $pl = MPlant::where('plant_code', $request->plant)->first();
+
+            // Simpan ke session
+            session()->put([
+                'business_unit_code' => $request->business_unit,
+                'business_unit_name' => $bu->bu_name ?? '-',
+                'business_unit_region' => $bu->region ?? '-',
+                'plant_code' => $request->plant,
+                'plant_name' => $pl->plant_name ?? '-',
             ]);
 
             return redirect()->route('dashboard')
                 ->with('success', 'Login berhasil! Selamat datang.');
         }
 
-        // Login gagal
         return back()->with('error', 'Username atau Password salah.');
     }
-
 
     public function logout(Request $request)
     {
         Auth::logout();
+        $request->session()->flush(); // hapus semua session
         return redirect()->route('login')->with('success', 'Berhasil logout.');
     }
 }

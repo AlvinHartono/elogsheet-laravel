@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Master Plant')
+@section('page_title', 'Master Plant')
 
 @section('content')
     <div class="bg-white p-6 rounded-2xl shadow max-w-xl mx-auto">

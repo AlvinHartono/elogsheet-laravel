@@ -31,18 +31,12 @@
         <!-- User Dropdown -->
         <!-- User Dropdown -->
         <div class="relative">
+            <!-- Avatar & Name Button -->
             <button @click="open = !open"
                 class="flex items-center space-x-2 hover:bg-gray-100 px-2 py-1 rounded transition">
                 <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->display_name) }}"
                     class="w-8 h-8 rounded-full" alt="User Avatar">
-                <div class="flex flex-col text-left">
-                    <span class="text-gray-700 font-medium">
-                        {{ Auth::user()->display_name }}
-                    </span>
-                    <span class="text-xs text-gray-500">
-                        {{ Auth::user()->business_unit ?? '-' }}
-                    </span>
-                </div>
+                <span class="text-gray-700 font-medium">{{ Auth::user()->display_name }}</span>
                 <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -55,7 +49,15 @@
                 x-transition:leave="transition ease-in duration-75"
                 x-transition:leave-start="transform opacity-100 scale-100"
                 x-transition:leave-end="transform opacity-0 scale-95" @click.away="open = false"
-                class="absolute right-0 mt-2 w-48 bg-white rounded shadow-md border z-30">
+                class="absolute right-0 mt-2 w-56 bg-white rounded shadow-md border z-30">
+
+                <!-- Business Unit & Plant Info -->
+                <div class="px-4 py-2 text-xs text-gray-500 border-b">
+                    <div>{{ session('business_unit_name', '-') }}</div>
+                    <div>{{ session('plant_code', '-') }}</div>
+                </div>
+
+                <!-- Dropdown Links -->
                 <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profil</a>
                 <button @click="showConfirm = true; open = false"
                     class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -63,6 +65,7 @@
                 </button>
             </div>
         </div>
+
 
     </div>
 

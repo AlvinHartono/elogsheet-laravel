@@ -44,6 +44,14 @@
             text-align: right;
             font-size: 10px;
         }
+
+        .note {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 9px;
+            font-style: italic;
+            color: #555;
+        }
     </style>
 </head>
 
@@ -128,7 +136,6 @@
                     <td>{{ $row->bp_ffa }}</td>
                     <td>{{ $row->{'bp_m&i'} }}</td>
                     <td>{{ $row->w_sbe_qc }}</td>
-
                 </tr>
             @endforeach
         </tbody>
@@ -143,6 +150,12 @@
                 <td>Checked by:<br><br><br>______________<br>(Department Head)</td>
             </tr>
         </table>
+    </div>
+
+    <!-- Catatan persetujuan elektronik -->
+    <div class="note">
+        Dokumen ini telah disetujui secara elektronik melalui sistem [E-Form],
+        sehingga tidak memerlukan tanda tangan asli.
     </div>
 </body>
 

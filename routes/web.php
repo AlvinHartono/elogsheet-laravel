@@ -9,6 +9,7 @@ use App\Http\Controllers\MstMastervalueController;
 use App\Http\Controllers\MstRoleController;
 use App\Http\Controllers\RptQualityController;
 use App\Http\Controllers\RptLampGlassController;
+use App\Http\Controllers\DashboardController;
 use App\Models\MMastervalue;
 /*
 |--------------------------------------------------------------------------
@@ -38,7 +39,7 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     // Dashboard
-    Route::get('/dashboard', fn() => view('dashboard'))->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Logout
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');

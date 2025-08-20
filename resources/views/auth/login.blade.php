@@ -88,7 +88,8 @@
                             class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-700">
                             <option value="" disabled selected class="text-gray-400 italic">Pilih Plant</option>
                             @foreach ($plants as $plant)
-                                <option value="{{ $plant->plant_code }}">{{ $plant->plant_name }}</option>
+                                <option value="{{ $plant->plant_code }}">{{ $plant->plant_code }} -
+                                    {{ $plant->plant_name }}</option>
                             @endforeach
                         </select>
                     </div>

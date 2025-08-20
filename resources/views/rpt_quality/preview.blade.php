@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Laporan Quality Refinery')
+@section('page_title', 'Laporan Quality Refinery')
 
 @section('content')
     <div class="bg-white p-6 rounded shadow-md text-sm relative">
@@ -104,54 +104,50 @@
         </div>
 
         {{-- Signature --}}
+        @php
+            $shiftLabels = [
+                'shift1' => '1st SHIFT',
+                'shift2' => '2nd SHIFT',
+                'shift3' => '3rd SHIFT',
+            ];
+        @endphp
+
         <div class="grid grid-cols-4 text-center mt-10 text-xs">
-            {{-- Shift 1 --}}
-            <div>
-                <strong>1st SHIFT</strong><br>
-                <br>
-                <br>
-                {{ $sign->prepared_by_shift1 ?? '________________' }}<br>
-                (Shift Leader)<br>
-                <small>
-                    {{ $sign->prepared_date_shift1 ? \Carbon\Carbon::parse($sign->prepared_date_shift1)->format('d M Y H:i') : '' }}
-                </small>
-            </div>
+            @foreach ($shiftLabels as $key => $label)
+                <div>
+                    <strong>{{ $label }}</strong><br><br><br>
+                    @if (!empty($signatures[$key]))
+                        {{ $signatures[$key]['name'] ?? '---' }}<br>
+                        (Shift Leader)
+                        <br>
+                        <small>
+                            {{ !empty($signatures[$key]['date'])
+                                ? \Carbon\Carbon::parse($signatures[$key]['date'])->format('d M Y H:i')
+                                : '' }}
+                        </small>
+                    @else
+                        ______________<br>
+                        (Shift Leader)<br>
+                    @endif
+                </div>
+            @endforeach
 
-            {{-- Shift 2 --}}
+            {{-- Checked (opsional, kalau field ada di LSQualityReport) --}}
             <div>
-                <strong>2nd SHIFT</strong><br>
-                <br>
-                <br>
-                {{ $sign->prepared_by_shift2 ?? '________________' }}
-                (Shift Leader)<br>
-                <small>
-                    {{ $sign->prepared_date_shift2 ? \Carbon\Carbon::parse($sign->prepared_date_shift2)->format('d M Y H:i') : '' }}
-                </small>
-            </div>
-
-            {{-- Shift 3 --}}
-            <div>
-                <strong>3rd SHIFT</strong><br>
-                <br>
-                <br>
-                {{ $sign->prepared_by_shift3 ?? '________________' }}
-                (Shift Leader)<br>
-                <small>
-                    {{ $sign->prepared_date_shift3 ? \Carbon\Carbon::parse($sign->prepared_date_shift3)->format('d M Y H:i') : '' }}
-                </small>
-            </div>
-
-            {{-- Checked --}}
-            <div>
-                <strong>Checked by:</strong><br>
-                <br>
-                <br>
+                <strong>Checked by:</strong><br><br><br>
                 {{ $sign->checked_by ?? '________________' }}<br>
                 (Department Head)<br>
                 <small>
-                    {{ $sign->checked_date ? \Carbon\Carbon::parse($sign->checked_date)->format('d M Y H:i') : '' }}
+                    {{ !empty($sign->checked_date) ? \Carbon\Carbon::parse($sign->checked_date)->format('d M Y H:i') : '' }}
                 </small>
             </div>
+        </div>
+
+
+        {{-- Informasi persetujuan elektronik --}}
+        <div class="mt-6 text-center text-xs text-gray-600 italic">
+            Dokumen ini telah disetujui secara elektronik melalui sistem [E-Logsheet],
+            sehingga tidak memerlukan tanda tangan asli.
         </div>
     </div>
 @endsection

@@ -20,4 +20,15 @@ class MBusinessUnit extends Model
         'bu_name',
         'isactive',
     ];
+
+    // Relasi ke LSQualityReport
+    public function qualityReports()
+    {
+        return $this->hasMany(LSQualityReport::class, 'plant', 'bu_code');
+    }
+
+    public function lampGlassReports()
+    {
+        return $this->hasMany(LSLampGlassHeader::class, 'plant', 'bu_code');
+    }
 }

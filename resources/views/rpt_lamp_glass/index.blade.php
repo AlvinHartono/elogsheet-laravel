@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Checklist Lamps and Glass Control')
+@section('page_title', 'Checklist Lamps and Glass Control')
 
 @section('content')
 
@@ -133,9 +133,9 @@
                                 </button>
                             </td>
                             <td class="px-4 py-2 border-b text-center">
-                                @if ($doc->checked_status == 'approved')
+                                @if ($doc->checked_status == 'Approved')
                                     <span class="px-2 py-1 text-xs rounded bg-green-100 text-green-700">Approved</span>
-                                @elseif ($doc->checked_status == 'rejected')
+                                @elseif ($doc->checked_status == 'Rejected')
                                     <span class="px-2 py-1 text-xs rounded bg-red-100 text-red-700">Rejected</span>
                                 @else
                                     <span class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">Pending</span>

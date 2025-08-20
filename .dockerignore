@@ -1,0 +1,23 @@
+# Folder yang nggak perlu masuk image
+node_modules
+# vendor
+# storage/logs
+# storage/framework/cache
+# storage/framework/sessions
+# storage/framework/views
+
+# File environment & config lokal
+.env.example
+.env local
+.env.*.local
+
+# Folder git
+.git
+.gitignore
+
+# OS & IDE junk files
+*.log
+.DS_Store
+Thumbs.db
+.idea
+.vscode

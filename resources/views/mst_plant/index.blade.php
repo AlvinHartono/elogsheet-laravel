@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Master Plant')
+@section('page_title', 'Master Plant')
 
 @section('content')
     <div x-data="{ open: false, deleteUrl: '' }" class="bg-white p-4 md:p-6 rounded shadow-md">

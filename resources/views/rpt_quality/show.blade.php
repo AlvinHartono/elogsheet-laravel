@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Detail Quality Report')
+@section('page_title', 'Detail Quality Report')
 
 @section('content')
     <div class="bg-white p-6 rounded-2xl shadow-md max-w-6xl mx-auto text-sm text-gray-700">
