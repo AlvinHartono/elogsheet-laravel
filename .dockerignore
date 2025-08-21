@@ -6,7 +6,8 @@ node_modules
 # storage/framework/sessions
 # storage/framework/views
 
-# File environment & config lokal
+# File environment & config lokal\
+.env*
 .env.example
 .env local
 .env.*.local
