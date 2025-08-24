@@ -41,39 +41,47 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php $rowIndex = 1; @endphp
-                    @foreach ($documents as $doc)
-                        @foreach ($doc->details as $detail)
-                            <tr>
-                                <td class="border px-2 py-1">{{ $rowIndex }}</td>
-                                <td class="border px-2 py-1">{{ $detail->check_item }}</td>
+                    @php
+                        $allDetails = collect();
+                        foreach ($documents as $doc) {
+                            foreach ($doc->details as $detail) {
+                                if (!$allDetails->contains('check_item', $detail->check_item)) {
+                                    $allDetails->push($detail);
+                                }
+                            }
+                        }
+                    @endphp
 
-                                @for ($day = 1; $day <= 31; $day++)
-                                    @php
-                                        $currentDate = \Carbon\Carbon::createFromDate(
-                                            $year,
-                                            $monthNumber,
-                                            $day,
-                                        )->format('Y-m-d');
-                                        $status = null;
-                                        // Cek apakah ada data di tanggal ini
+                    @foreach ($allDetails as $index => $detail)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ $detail->check_item }}</td>
+                            @for ($day = 1; $day <= 31; $day++)
+                                @php
+                                    $currentDate = \Carbon\Carbon::createFromDate($year, $monthNumber, $day)->format(
+                                        'Y-m-d',
+                                    );
+                                    $status = null;
+                                    foreach ($documents as $doc) {
                                         if (\Carbon\Carbon::parse($doc->check_date)->format('Y-m-d') === $currentDate) {
-                                            $status = $detail->status_item;
+                                            foreach ($doc->details as $d) {
+                                                if ($d->check_item === $detail->check_item) {
+                                                    $status = $d->status_item;
+                                                    break 2;
+                                                }
+                                            }
                                         }
-                                    @endphp
-                                    <td class="border px-1 py-1 text-center">
-                                        @if ($status === 'T')
-                                            ✓
-                                        @elseif ($status === 'F')
-                                            ✗
-                                        @endif
-                                    </td>
-                                @endfor
-
-                                <td class="border px-2 py-1">{{ $doc->checked_status_remarks ?? '' }}</td>
-                            </tr>
-                            @php $rowIndex++; @endphp
-                        @endforeach
+                                    }
+                                @endphp
+                                <td class="text-center">
+                                    @if ($status === 'T')
+                                        ✓
+                                    @elseif ($status === 'F')
+                                        ✗
+                                    @endif
+                                </td>
+                            @endfor
+                        </tr>
                     @endforeach
 
                     {{-- Baris paraf --}}

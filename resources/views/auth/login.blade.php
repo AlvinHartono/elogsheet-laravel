@@ -46,70 +46,60 @@
                 @endif
 
                 <!-- Login Form -->
-                <form method="POST" action="{{ route('login') }}" class="space-y-4">
+                <form method="POST" action="{{ route('login') }}" class="space-y-4" x-data="{
+                    selectedBU: '',
+                    plants: {{ $plants->toJson() }},
+                    get filteredPlants() {
+                        return this.plants.filter(p => p.bu_code === this.selectedBU);
+                    }
+                }">
                     @csrf
 
                     <!-- Username -->
                     <div>
-                        <label for="username" class="block text-sm font-medium text-gray-600 mb-1">Username</label>
-                        <input type="text" name="username" id="username" value="{{ old('username') }}" required
-                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            placeholder="username">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Username</label>
+                        <input type="text" name="username" required
+                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:ring-2 focus:ring-blue-300">
                     </div>
 
                     <!-- Password -->
                     <div>
-                        <label for="password" class="block text-sm font-medium text-gray-600 mb-1">Password</label>
-                        <input type="password" name="password" id="password" required
-                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            placeholder="********">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Password</label>
+                        <input type="password" name="password" required
+                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:ring-2 focus:ring-blue-300">
                     </div>
 
                     <!-- Business Unit -->
                     <div>
-                        <label for="business_unit" class="block text-sm font-medium text-gray-600 mb-1">Business
-                            Unit</label>
-                        <select name="business_unit" id="business_unit" required
-                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-700">
-                            <option value="" disabled selected class="text-gray-400 italic">Pilih Business Unit
-                            </option>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Business Unit</label>
+                        <select name="business_unit" x-model="selectedBU" required
+                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:ring-2 focus:ring-blue-300">
+                            <option value="" disabled selected>Pilih Business Unit</option>
                             @foreach ($businessUnits as $bu)
-                                <option value="{{ $bu->bu_code }}">
-                                    {{ $bu->bu_code }} - {{ $bu->bu_name }}
-                                </option>
+                                <option value="{{ $bu->bu_code }}">{{ $bu->bu_code }} - {{ $bu->bu_name }}</option>
                             @endforeach
                         </select>
                     </div>
 
                     <!-- Plant -->
                     <div>
-                        <label for="plant" class="block text-sm font-medium text-gray-600 mb-1">Plant</label>
-                        <select name="plant" id="plant" required
-                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-700">
-                            <option value="" disabled selected class="text-gray-400 italic">Pilih Plant</option>
-                            @foreach ($plants as $plant)
-                                <option value="{{ $plant->plant_code }}">{{ $plant->plant_code }} -
-                                    {{ $plant->plant_name }}</option>
-                            @endforeach
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Plant</label>
+                        <select name="plant" required
+                            class="w-full px-4 py-2 rounded-md bg-gray-100 border border-gray-300 focus:ring-2 focus:ring-blue-300">
+                            <option value="" disabled selected>Pilih Plant</option>
+                            <template x-for="pl in filteredPlants" :key="pl.plant_code">
+                                <option :value="pl.plant_code" x-text="pl.plant_code + ' - ' + pl.plant_name"></option>
+                            </template>
                         </select>
                     </div>
 
-                    <!-- Forgot password -->
-                    {{-- <div class="flex justify-end">
-                        <a href="#" class="text-sm text-blue-600 hover:underline">Forgot password?</a>
-                    </div> --}}
-
                     <!-- Login Button -->
                     <button type="submit"
-                        class="w-full py-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold rounded-md transition">
+                        class="w-full py-2 bg-gray-800 hover:bg-gray-900 text-white font-semibold rounded-md">
                         Sign in
                     </button>
-                    <!-- Register Link -->
-                    <p class="text-center text-sm text-gray-500 mt-6">
-                        Are you new?
-                        <a href="#" class="text-blue-600 hover:underline">Create an Account</a>
-                    </p>
                 </form>
+
             </div>
         </div>
 

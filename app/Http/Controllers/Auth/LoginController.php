@@ -13,11 +13,15 @@ class LoginController extends Controller
 {
     public function showLoginForm()
     {
-        $businessUnits = MBusinessUnit::all(); // ambil semua business unit
-        $plants = MPlant::all();               // ambil semua plant
+        $businessUnits = MBusinessUnit::all();
+        $plants = MPlant::all();
 
-        return view('auth.login', compact('businessUnits', 'plants'));
+        return view('auth.login', [
+            'businessUnits' => $businessUnits,
+            'plants' => $plants,
+        ]);
     }
+
 
     public function login(Request $request)
     {

@@ -50,6 +50,7 @@
                     </svg>
                     View Layout
                 </a>
+
                 <div class="flex flex-col sm:flex-row gap-2">
                     {{-- Tombol Download --}}
                     <a href="{{ route('report-quality.export.pdf', ['filter_tanggal' => $selectedDate, 'mode' => 'preview']) }}"
@@ -161,14 +162,14 @@
             <div
                 class="p-4 rounded-lg shadow text-center
         {{ $shiftStatuses['shift1'] == 'Approved Semua' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                <h3 class="font-semibold">Shift 1 (08:00 - 15:00)</h3>
+                <h3 class="font-semibold">Shift 1 (08:00 - 15:59)</h3>
                 <p class="text-sm">{{ $shiftStatuses['shift1'] }}</p>
             </div>
 
             <div
                 class="p-4 rounded-lg shadow text-center
         {{ $shiftStatuses['shift2'] == 'Approved Semua' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                <h3 class="font-semibold">Shift 2 (15:01 - 23:59)</h3>
+                <h3 class="font-semibold">Shift 2 (16:00 - 23:59)</h3>
                 <p class="text-sm">{{ $shiftStatuses['shift2'] }}</p>
             </div>
 

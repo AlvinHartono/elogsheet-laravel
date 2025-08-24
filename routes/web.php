@@ -61,12 +61,20 @@ Route::middleware('auth')->group(function () {
     | Report: F/RFA-001 - Quality Report
     |--------------------------------------------------------------------------
     */
+    // Produksi
     Route::resource('report-quality', RptQualityController::class)->only(['index', 'show']);
     Route::post('/report-quality/approve-date', [RptQualityController::class, 'approveDate'])->name('report-quality.approve-date');
     Route::post('/report-quality/reject-date', [RptQualityController::class, 'rejectDate'])->name('report-quality.reject-date');
     Route::get('/report-quality-preview', [RptQualityController::class, 'exportLayoutPreview'])->name('report-quality.export.view');
     Route::get('/report-quality-excel', [RptQualityController::class, 'exportExcel'])->name('report-quality.export');
     Route::get('/report-quality-pdf', [RptQualityController::class, 'exportPdf'])->name('report-quality.export.pdf');
+
+    // QC
+    Route::get('/report-quality-qc', [RptQualityController::class, 'indexQc'])->name('report-quality.qc.index');
+    Route::get('/report-quality-preview-qc', [RptQualityController::class, 'exportLayoutPreviewQc'])->name('report-quality.qc.export.view');
+
+
+
 
     /*
     |--------------------------------------------------------------------------
