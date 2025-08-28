@@ -10,6 +10,7 @@ use App\Http\Controllers\MstRoleController;
 use App\Http\Controllers\RptQualityController;
 use App\Http\Controllers\RptLampGlassController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LogsheetDryFraController;
 use App\Models\MMastervalue;
 /*
 |--------------------------------------------------------------------------
@@ -72,6 +73,7 @@ Route::middleware('auth')->group(function () {
     // QC
     Route::get('/report-quality-qc', [RptQualityController::class, 'indexQc'])->name('report-quality.qc.index');
     Route::get('/report-quality-preview-qc', [RptQualityController::class, 'exportLayoutPreviewQc'])->name('report-quality.qc.export.view');
+    Route::get('/report-quality-pdf-qc', [RptQualityController::class, 'exportPdfQc'])->name('report-quality.qc.export.pdf');
 
 
 
@@ -87,4 +89,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/report-lampnglass-preview', [RptLampGlassController::class, 'exportLayoutPreview'])->name('report-lampnglass.export.view');
     Route::get('/report-lampnglass-excel', [RptLampGlassController::class, 'exportExcel'])->name('report-lampnglass.export');
     Route::get('/report-lampnglass-pdf', [RptLampGlassController::class, 'exportPdf'])->name('report-lampnglass.export.pdf');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Logsheet: F/RFA-010 - Monitoring Dry Fractionation Plant Logsheet
+    |--------------------------------------------------------------------------
+    */
+    // Produksi
+    Route::resource('logsheet-dryfractination', LogsheetDryFraController::class)->only(['index', 'show']);
+    Route::post('/logsheet-dryfractination/store', [LogsheetDryFraController::class, 'store'])
+        ->name('dryfrac.store');
 });

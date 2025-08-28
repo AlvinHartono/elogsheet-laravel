@@ -36,8 +36,8 @@ class RptQualityController extends Controller
 
         // --- Pengecekan status shift ---
         $shiftStatuses = [
-            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:00:00'),
-            'shift2' => $this->checkShiftStatus($tanggal, '15:00:01', '23:59:59'),
+            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:59:59'),
+            'shift2' => $this->checkShiftStatus($tanggal, '16:00:00', '23:59:59'),
             'shift3' => $this->checkShiftStatus($tanggal, '00:00:00', '07:59:59'),
         ];
 
@@ -60,40 +60,6 @@ class RptQualityController extends Controller
     }
 
 
-
-    // public function exportLayoutPreview(Request $request)
-    // {
-    //     $selectedDate = $request->input('filter_tanggal', now()->toDateString());
-
-    //     $data = LSQualityReport::whereDate('posting_date', $selectedDate)
-    //         ->orderByRaw("CASE
-    //         WHEN time >= '08:00:00' AND time <= '15:00:00' THEN 1
-    //         WHEN time >= '15:00:01' AND time <= '23:59:59' THEN 2
-    //         WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
-    //         ELSE 4 END")
-    //         ->orderBy('time', 'asc')
-    //         ->get();
-
-    //     $shiftRanges = [
-    //         'shift1' => ['08:00:00', '15:00:00', 'prepared_status_shift1'],
-    //         'shift2' => ['15:00:01', '23:59:59', 'prepared_status_shift2'],
-    //         'shift3' => ['00:00:00', '07:59:59', 'prepared_status_shift3'],
-    //     ];
-
-    //     $signatures = [];
-
-    //     foreach ($shiftRanges as $shift => [$start, $end, $statusField]) {
-    //         $shiftData = $data->whereBetween('time', [$start, $end]);
-
-    //         if ($shiftData->count() > 0 && $shiftData->every(fn($row) => $row->$statusField === 'Approved')) {
-    //             $signatures[$shift] = $shiftData->last(); // simpan row terakhir
-    //         } else {
-    //             $signatures[$shift] = null;
-    //         }
-    //     }
-
-    //     return view('rpt_quality.preview', compact('data', 'selectedDate', 'signatures'));
-    // }
     public function exportLayoutPreview(Request $request)
     {
         $selectedDate = $request->input('filter_tanggal', now()->toDateString());
@@ -101,40 +67,64 @@ class RptQualityController extends Controller
         // Data tabel utama (untuk grid)
         $data = LSQualityReport::whereDate('posting_date', $selectedDate)
             ->orderByRaw("CASE
-            WHEN time >= '08:00:00' AND time <= '15:00:00' THEN 1
-            WHEN time >= '15:00:01' AND time <= '23:59:59' THEN 2
+            WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
+            WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
             WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
             ELSE 4 END")
             ->orderBy('time', 'asc')
             ->get();
 
-        // Helper ambil tanda tangan per shift (baris terakhir yang Approved)
-        $getShiftSignature = function (string $date, string $start, string $end, int $shiftNo) {
-            $statusField = "prepared_status_shift{$shiftNo}";
-            $nameField   = "prepared_by_shift{$shiftNo}";
-            $dateField   = "prepared_date_shift{$shiftNo}";
-
+        // Helper tanda tangan per shift
+        $getShiftSignature = function (string $date, string $start, string $end) {
             $row = LSQualityReport::whereDate('posting_date', $date)
                 ->whereBetween('time', [$start, $end])
-                ->where($statusField, 'Approved')
-                ->orderBy('time', 'desc') // ambil yang paling akhir di shift tsb
-                ->first([$nameField . ' as name', $dateField . ' as date']);
+                ->where('prepared_status', 'Approved')
+                ->orderBy('time', 'desc')
+                ->first(['prepared_by as name', 'prepared_date as date']);
 
             return $row ? ['name' => $row->name, 'date' => $row->date] : null;
         };
 
-        // Tanda tangan per shift
         $signatures = [
-            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:00:00', 1),
-            'shift2' => $getShiftSignature($selectedDate, '15:00:01', '23:59:59', 2),
-            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59', 3),
+            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:59:59'),
+            'shift2' => $getShiftSignature($selectedDate, '16:00:00', '23:59:59'),
+            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59'),
         ];
 
-        // Kalau kamu masih butuh "Checked by" dari salah satu baris, pakai baris pertama hari itu
-        $sign = $data->first(); // aman kalau kolom checked_by/checked_date memang ada di LSQualityReport
+        $sign = $data->first();
 
-        return view('rpt_quality.preview', compact('data', 'selectedDate', 'signatures', 'sign'));
+        // --- Ambil form info sesuai selectedDate ---
+        $formInfoFirst = LSQualityReport::whereDate('posting_date', $selectedDate)
+            ->orderBy('revision_date', 'asc')
+            ->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
+
+        $formInfoLast = LSQualityReport::whereDate('posting_date', $selectedDate)
+            ->orderBy('revision_date', 'desc')
+            ->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
+
+        // --- Ambil refinery name dari join ---
+        $refinery = LSQualityReport::whereDate('posting_date', $selectedDate)
+            ->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
+            ->select('t_quality_report_refinery.work_center', 'm_mastervalue.name')
+            ->first();
+
+        $oilType = LSQualityReport::whereDate('posting_date', $selectedDate)
+            ->select('oil_type')
+            ->first();
+
+        return view('rpt_quality.preview', compact(
+            'data',
+            'selectedDate',
+            'signatures',
+            'sign',
+            'formInfoFirst',
+            'formInfoLast',
+            'refinery',
+            'oilType'
+        ));
     }
+
+
 
 
     public function exportPdf(Request $request)
@@ -143,8 +133,8 @@ class RptQualityController extends Controller
 
         $data = LSQualityReport::whereDate('posting_date', $selectedDate)
             ->orderByRaw("CASE
-        WHEN time >= '08:00:00' AND time <= '15:00:00' THEN 1
-        WHEN time >= '15:00:01' AND time <= '23:59:59' THEN 2
+        WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
+        WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
         WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
         ELSE 4 END")
             ->orderBy('time', 'asc')
@@ -164,12 +154,13 @@ class RptQualityController extends Controller
             ->update([
                 'checked_status' => 'Approved',
                 'checked_status_remarks' => null,
-                'checked_date' => now(),
+                'checked_date' => now()->format('Y-m-d H:i:s'),
                 'checked_by' => auth()->user()->username ?? auth()->user()->name,
             ]);
 
         return redirect()->back()->with('success', "Semua data tanggal $date berhasil di-approve.");
     }
+
 
 
 
@@ -241,8 +232,8 @@ class RptQualityController extends Controller
 
         // --- Pengecekan status shift ---
         $shiftStatuses = [
-            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:00:00'),
-            'shift2' => $this->checkShiftStatus($tanggal, '15:00:01', '23:59:59'),
+            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:59:59'),
+            'shift2' => $this->checkShiftStatus($tanggal, '16:00:00', '23:59:59'),
             'shift3' => $this->checkShiftStatus($tanggal, '00:00:00', '07:59:59'),
         ];
 
@@ -256,38 +247,52 @@ class RptQualityController extends Controller
         // Data tabel utama (untuk grid)
         $data = LSQualityReport::whereDate('posting_date', $selectedDate)
             ->orderByRaw("CASE
-            WHEN time >= '08:00:00' AND time <= '15:00:00' THEN 1
-            WHEN time >= '15:00:01' AND time <= '23:59:59' THEN 2
+            WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
+            WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
             WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
             ELSE 4 END")
             ->orderBy('time', 'asc')
             ->get();
 
-        // Helper ambil tanda tangan per shift (baris terakhir yang Approved)
-        $getShiftSignature = function (string $date, string $start, string $end, int $shiftNo) {
-            $statusField = "prepared_status_shift{$shiftNo}";
-            $nameField   = "prepared_by_shift{$shiftNo}";
-            $dateField   = "prepared_date_shift{$shiftNo}";
-
+        // Helper tanda tangan per shift
+        $getShiftSignature = function (string $date, string $start, string $end) {
             $row = LSQualityReport::whereDate('posting_date', $date)
                 ->whereBetween('time', [$start, $end])
-                ->where($statusField, 'Approved')
-                ->orderBy('time', 'desc') // ambil yang paling akhir di shift tsb
-                ->first([$nameField . ' as name', $dateField . ' as date']);
+                ->where('prepared_status', 'Approved')
+                ->orderBy('time', 'desc')
+                ->first(['prepared_by as name', 'prepared_date as date']);
 
             return $row ? ['name' => $row->name, 'date' => $row->date] : null;
         };
 
-        // Tanda tangan per shift
         $signatures = [
-            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:00:00', 1),
-            'shift2' => $getShiftSignature($selectedDate, '15:00:01', '23:59:59', 2),
-            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59', 3),
+            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:59:59'),
+            'shift2' => $getShiftSignature($selectedDate, '16:00:00', '23:59:59'),
+            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59'),
         ];
 
         // Kalau kamu masih butuh "Checked by" dari salah satu baris, pakai baris pertama hari itu
         $sign = $data->first(); // aman kalau kolom checked_by/checked_date memang ada di LSQualityReport
 
         return view('rpt_quality.QC.preview', compact('data', 'selectedDate', 'signatures', 'sign'));
+    }
+
+    public function exportPdfQc(Request $request)
+    {
+        $selectedDate = $request->input('filter_tanggal', now()->toDateString());
+
+        $data = LSQualityReport::whereDate('posting_date', $selectedDate)
+            ->orderByRaw("CASE
+        WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
+        WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
+        WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
+        ELSE 4 END")
+            ->orderBy('time', 'asc')
+            ->get();
+
+        $pdf = Pdf::loadView('exports.report_quality_layout_pdf_qc', compact('data', 'selectedDate'))
+            ->setPaper('a3', 'landscape');
+
+        return $pdf->stream('quality_report_' . $selectedDate . '.pdf');
     }
 }

@@ -76,19 +76,9 @@
         <x-section title="Validasi & Approval">
 
             {{-- Prepared Shift 1 --}}
-            <x-info label="Prepared By (Shift 1)" :value="$report->prepared_by_shift1" />
-            <x-info label="Prepared Date (Shift 1)" :value="$report->prepared_date_shift1?->format('d M Y H:i')" />
-            <x-info label="Prepared Status (Shift 1)" :value="$report->prepared_status_shift1" />
-
-            {{-- Prepared Shift 2 --}}
-            <x-info label="Prepared By (Shift 2)" :value="$report->prepared_by_shift2" />
-            <x-info label="Prepared Date (Shift 2)" :value="$report->prepared_date_shift2?->format('d M Y H:i')" />
-            <x-info label="Prepared Status (Shift 2)" :value="$report->prepared_status_shift2" />
-
-            {{-- Prepared Shift 3 --}}
-            <x-info label="Prepared By (Shift 3)" :value="$report->prepared_by_shift3" />
-            <x-info label="Prepared Date (Shift 3)" :value="$report->prepared_date_shift3?->format('d M Y H:i')" />
-            <x-info label="Prepared Status (Shift 3)" :value="$report->prepared_status_shift3" />
+            <x-info label="Prepared By" :value="$report->prepared_by" />
+            <x-info label="Prepared Date" :value="$report->prepared_date?->format('d M Y H:i')" />
+            <x-info label="Prepared Status" :value="$report->prepared_status" />
 
             {{-- Remarks --}}
             <x-info label="Prepared Remarks" :value="$report->prepared_status_remarks_shift" />

@@ -7,19 +7,30 @@
         {{-- Form Info --}}
         {{-- <div class="absolute top-4 left-6 text-xs leading-tight text-left"> --}}
         <div class="absolute top-4 right-6 text-xs leading-tight text-left">
-            <div><strong>Form No.</strong> : F/RFA-001</div>
-            <div><strong>Date Issued</strong> : 191101</div>
-            <div><strong>Revision</strong> : 01</div>
-            <div><strong>Rev. Date</strong> : 210901</div>
+            <div><strong>Form No.</strong> : {{ $formInfoFirst->form_no ?? '' }}</div>
+            <div><strong>Date Issued</strong> :
+                {{ $formInfoFirst && $formInfoFirst->date_issued ? \Carbon\Carbon::parse($formInfoFirst->date_issued)->format('ymd') : '' }}
+            </div>
+            <div><strong>Revision</strong> : {{ $formInfoLast ? sprintf('%02d', $formInfoLast->revision_no) : '' }}</div>
+            <div><strong>Rev. Date</strong> :
+                {{ $formInfoLast && $formInfoLast->revision_date ? \Carbon\Carbon::parse($formInfoLast->revision_date)->format('ymd') : '' }}
+            </div>
         </div>
+
 
         {{-- Judul --}}
         <div class="text-center mb-4">
             <h2 class="text-lg font-bold uppercase">PT.PRISCOLIN</h2>
             <h3 class="text-xl font-bold uppercase">QUALITY REPORT</h3>
-            <div class="mt-1">Refinery: 500 | Oil Type: RBD PO</div>
-            <div class="mt-1">Date: {{ \Carbon\Carbon::parse($selectedDate)->format('d-m-Y') }}</div>
+            <div class="mt-1">
+                {{ $refinery->name ?? '-' }} ({{ $refinery->work_center ?? '' }}) | Oil Type:
+                {{ $oilType->oil_type ?? '-' }}
+            </div>
+            <div class="mt-1">
+                Date: {{ \Carbon\Carbon::parse($selectedDate)->format('d-m-Y') }}
+            </div>
         </div>
+
 
 
         <div class="overflow-x-auto">

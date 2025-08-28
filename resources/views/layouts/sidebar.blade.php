@@ -7,6 +7,7 @@
                 request()->routeIs('master-value.*') ||
                 request()->routeIs('master-role.*')),
         openReport: @json(request()->routeIs('report-quality.*') || request()->routeIs('report-lampnglass.*')),
+        openLogsheet: @json(request()->routeIs('logsheet-dryfractination.*')),
     }">
 
     <div class="h-full flex flex-col">
@@ -91,6 +92,61 @@
                 </svg>
                 Users
             </a>
+
+            {{-- Logsheet --}}
+            <div>
+                <button @click="openLogsheet = !openLogsheet"
+                    class="flex items-center justify-between w-full px-3 py-2 rounded transition
+                    {{ request()->routeIs('logsheet.*') ? 'bg-gray-100 text-blue-600 font-semibold' : 'hover:bg-gray-100' }}">
+
+                    <div class="flex items-center gap-3">
+                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                        Logsheet
+                    </div>
+                    <svg :class="{ 'rotate-90': openLogsheet }"
+                        class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+
+                <div x-show="openLogsheet" x-collapse x-cloak class="mt-1 ml-6 space-y-1 border-l pl-4">
+                    <!-- Refinery Group -->
+                    <div x-data="{ openRefinery: @json(request()->routeIs('logsheet-dryfractination.*')) }">
+                        <button @click="openRefinery = !openRefinery"
+                            class="flex items-center justify-between w-full px-2 py-1 rounded text-sm transition
+                            {{ request()->routeIs('logsheet-dryfractination.*')
+                                ? 'bg-blue-50 text-blue-700 font-semibold'
+                                : 'hover:bg-gray-100' }}">
+                            <span>• Refinery Log</span>
+                            <svg :class="{ 'rotate-90': openRefinery }"
+                                class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none"
+                                stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+
+                        <div x-show="openRefinery" x-collapse x-cloak class="ml-4 mt-1 space-y-1">
+                            <a href="{{ route('logsheet-dryfractination.index') }}"
+                                class="block px-2 py-1 rounded transition text-sm
+                                {{ request()->routeIs('logsheet-dryfractination.*') ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-gray-100' }}">
+                                • [F/RFA-010] Dry Fractionation Log
+                            </a>
+                        </div>
+                    </div>
+
+
+                    <a href=""
+                        class="block px-2 py-1 rounded transition
+                        {{ request()->routeIs('logsheet.*') ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-gray-100' }}">
+                        • QC Log
+                    </a>
+                </div>
+            </div>
 
             <!-- Report -->
             <div>

@@ -45,11 +45,10 @@ class LoginController extends Controller
 
             // Simpan ke session
             session()->put([
-                'business_unit_code' => $request->business_unit,
+                'business_unit_code' => $bu->bu_code,
                 'business_unit_name' => $bu->bu_name ?? '-',
-                'business_unit_region' => $bu->region ?? '-',
-                'plant_code' => $request->plant,
                 'plant_name' => $pl->plant_name ?? '-',
+                'plant_code' => $pl->plant_code ?? '-',
             ]);
 
             return redirect()->route('dashboard')
