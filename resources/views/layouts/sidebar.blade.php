@@ -121,7 +121,7 @@
                             {{ request()->routeIs('logsheet-dryfractination.*')
                                 ? 'bg-blue-50 text-blue-700 font-semibold'
                                 : 'hover:bg-gray-100' }}">
-                            <span>• Refinery Log</span>
+                            <span>• Log Refinery</span>
                             <svg :class="{ 'rotate-90': openRefinery }"
                                 class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none"
                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -143,7 +143,7 @@
                     <a href=""
                         class="block px-2 py-1 rounded transition
                         {{ request()->routeIs('logsheet.*') ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-gray-100' }}">
-                        • QC Log
+                        • Log QC
                     </a>
                 </div>
             </div>

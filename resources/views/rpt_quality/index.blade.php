@@ -40,7 +40,10 @@
                     </svg>
                     Export Excel
                 </a>
-                <a href="{{ route('report-quality.export.view', ['filter_tanggal' => $selectedDate]) }}"
+                <a href="{{ route('report-quality.export.view', [
+                    'filter_tanggal' => $selectedDate,
+                    'filter_work_center' => request('filter_work_center'),
+                ]) }}"
                     class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor" stroke-width="2">
@@ -51,9 +54,10 @@
                     View Layout
                 </a>
 
+
                 <div class="flex flex-col sm:flex-row gap-2">
                     {{-- Tombol Download --}}
-                    <a href="{{ route('report-quality.export.pdf', ['filter_tanggal' => $selectedDate, 'mode' => 'preview']) }}"
+                    <a href="{{ route('report-quality.export.pdf', ['filter_tanggal' => $selectedDate, 'filter_work_center' => request('filter_work_center'), 'mode' => 'preview']) }}"
                         class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow transition"
                         target="_blank">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
@@ -70,7 +74,6 @@
         </div>
 
         {{-- Filter --}}
-
         <div class="bg-gray-50 p-4 rounded-md shadow-sm mb-6">
             <form method="GET" action="{{ route('report-quality.index') }}" class="flex flex-wrap items-end gap-4">
                 <div class="w-full sm:w-44">
@@ -78,6 +81,7 @@
                     <input type="date" id="filter_tanggal" name="filter_tanggal" value="{{ $selectedDate }}"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
                 </div>
+
                 <div class="w-full sm:w-32">
                     <label for="filter_jam" class="block text-sm font-medium text-gray-700">Time</label>
                     <select id="filter_jam" name="filter_jam"
@@ -91,6 +95,21 @@
                         @endfor
                     </select>
                 </div>
+
+                <div class="w-full sm:w-48">
+                    <label for="filter_work_center" class="block text-sm font-medium text-gray-700">Work Center</label>
+                    <select id="filter_work_center" name="filter_work_center"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">Pilih Work Center</option>
+                        @foreach ($workCenters as $wc)
+                            <option value="{{ $wc->work_center }}"
+                                {{ request('filter_work_center') == $wc->work_center ? 'selected' : '' }}>
+                                {{ $wc->work_center }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 {{-- Tombol Filter --}}
                 <div class="flex items-end gap-2">
                     <button type="submit"
@@ -98,13 +117,25 @@
                         Filter
                     </button>
 
-                    @if (request()->has('filter_tanggal') || request()->has('filter_jam'))
+                    @if (request()->has('filter_tanggal') || request()->has('filter_jam') || request()->has('filter_work_center'))
                         <a href="{{ route('report-quality.index') }}"
                             class="inline-flex items-center px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-semibold rounded-lg shadow transition">
                             Reset
                         </a>
                     @endif
                 </div>
+                @if (empty(request('filter_work_center')))
+                    <div class="mb-4 p-3 text-sm text-blue-800 bg-blue-100 border border-blue-200 rounded-lg">
+                        <strong>Info:</strong> Jika tidak memilih <em>Work Center</em>, sistem akan menampilkan
+                        <span class="font-semibold">semua work center</span> dalam laporan.
+                    </div>
+                @endif
+                {{-- @if (empty(request('filter_work_center')))
+                    <p class="text-xs text-gray-500 mb-3">
+                        *Jika tidak memilih work center, laporan akan menampilkan semua work center
+                    </p>
+                @endif --}}
+
             </form>
         </div>
 

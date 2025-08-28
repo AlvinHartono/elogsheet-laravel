@@ -23,40 +23,91 @@ class LoginController extends Controller
     }
 
 
+    // public function login(Request $request)
+    // {
+    //     // Validasi input
+    //     $request->validate([
+    //         'username' => 'required|string',
+    //         'password' => 'required|string',
+    //         'business_unit' => 'required|string',
+    //         'plant' => 'required|string',
+    //     ]);
+
+    //     $credentials = $request->only('username', 'password');
+
+    //     if (Auth::attempt($credentials)) {
+
+    //         // Ambil data business unit
+    //         $bu = MBusinessUnit::where('bu_code', $request->business_unit)->first();
+
+    //         // Ambil data plant
+    //         $pl = MPlant::where('plant_code', $request->plant)->first();
+
+    //         // Simpan ke session
+    //         session()->put([
+    //             'business_unit_code' => $bu->bu_code,
+    //             'business_unit_name' => $bu->bu_name ?? '-',
+    //             'plant_name' => $pl->plant_name ?? '-',
+    //             'plant_code' => $pl->plant_code ?? '-',
+    //         ]);
+
+    //         return redirect()->route('dashboard')
+    //             ->with('success', 'Login berhasil! Selamat datang.');
+    //     }
+
+    //     return back()->with('error', 'Username atau Password salah.');
+    // }
+
     public function login(Request $request)
     {
         // Validasi input
         $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-            'business_unit' => 'required|string',
-            'plant' => 'required|string',
+            'username'       => 'required|string',
+            'password'       => 'required|string',
+            'business_unit'  => 'required|string',
+            'plant'          => 'required|string',
         ]);
 
         $credentials = $request->only('username', 'password');
 
+        // Coba login normal (hash bcrypt)
         if (Auth::attempt($credentials)) {
+            return $this->afterLoginSuccess($request);
+        }
 
-            // Ambil data business unit
-            $bu = MBusinessUnit::where('bu_code', $request->business_unit)->first();
+        // Fallback: cek manual plain password
+        $user = \App\Models\MUser::where('username', $request->username)
+            ->where('password', $request->password) // plain text check
+            ->first();
 
-            // Ambil data plant
-            $pl = MPlant::where('plant_code', $request->plant)->first();
-
-            // Simpan ke session
-            session()->put([
-                'business_unit_code' => $bu->bu_code,
-                'business_unit_name' => $bu->bu_name ?? '-',
-                'plant_name' => $pl->plant_name ?? '-',
-                'plant_code' => $pl->plant_code ?? '-',
-            ]);
-
-            return redirect()->route('dashboard')
-                ->with('success', 'Login berhasil! Selamat datang.');
+        if ($user) {
+            Auth::login($user);
+            return $this->afterLoginSuccess($request);
         }
 
         return back()->with('error', 'Username atau Password salah.');
     }
+
+    private function afterLoginSuccess(Request $request)
+    {
+        // Ambil data business unit
+        $bu = MBusinessUnit::where('bu_code', $request->business_unit)->first();
+
+        // Ambil data plant
+        $pl = MPlant::where('plant_code', $request->plant)->first();
+
+        // Simpan ke session
+        session()->put([
+            'business_unit_code' => $bu->bu_code ?? '-',
+            'business_unit_name' => $bu->bu_name ?? '-',
+            'plant_code'         => $pl->plant_code ?? '-',
+            'plant_name'         => $pl->plant_name ?? '-',
+        ]);
+
+        return redirect()->route('dashboard')
+            ->with('success', 'Login berhasil! Selamat datang.');
+    }
+
 
     public function logout(Request $request)
     {
