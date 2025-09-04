@@ -46,7 +46,7 @@
                 <th class="border px-1 py-1">M&I</th>
 
                 {{-- SBE sub-columns --}}
-                <th class="border px-1 py-1">QC (%)</th>
+                <th class="border px-1 py-1">OC (%)</th>
             </tr>
         </thead>
         <tbody>

@@ -78,7 +78,7 @@
     <div class="text-center" style="margin-bottom:15px;">
         <h2 style="text-transform:uppercase; font-weight:bold;">PT.PRISCOLIN</h2>
         <h3 style="text-transform:uppercase; font-weight:bold;">QUALITY REPORT</h3>
-        <p>Date: {{ \Carbon\Carbon::parse($selectedDate)->format('d-m-Y') }}</p>
+        <p>Date: {{ \Carbon\Carbon::parse($tanggal)->format('d-m-Y') }}</p>
 
         @if ($workCenter)
             <div style="margin-top:4px; font-weight:bold;">
@@ -140,7 +140,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach ($rows as $row)
+                @foreach ($data as $row)
                     <tr>
                         <td>{{ $row->time ? \Carbon\Carbon::parse($row->time)->format('H:i') : '' }}</td>
                         <td>{{ $row->rm_tank_source }}</td>

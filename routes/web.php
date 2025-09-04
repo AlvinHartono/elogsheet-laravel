@@ -11,7 +11,6 @@ use App\Http\Controllers\RptQualityController;
 use App\Http\Controllers\RptLampGlassController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LogsheetDryFraController;
-use App\Models\MMastervalue;
 /*
 |--------------------------------------------------------------------------
 | Guest Routes (Login)
@@ -62,19 +61,44 @@ Route::middleware('auth')->group(function () {
     | Report: F/RFA-001 - Quality Report
     |--------------------------------------------------------------------------
     */
-    // Produksi
-    Route::resource('report-quality', RptQualityController::class)->only(['index', 'show']);
-    Route::post('/report-quality/approve-date', [RptQualityController::class, 'approveDate'])->name('report-quality.approve-date');
-    Route::post('/report-quality/reject-date', [RptQualityController::class, 'rejectDate'])->name('report-quality.reject-date');
-    Route::get('/report-quality-preview', [RptQualityController::class, 'exportLayoutPreview'])->name('report-quality.export.view');
-    Route::get('/report-quality-excel', [RptQualityController::class, 'exportExcel'])->name('report-quality.export');
-    Route::get('/report-quality-pdf', [RptQualityController::class, 'exportPdf'])->name('report-quality.export.pdf');
 
-    // QC
-    Route::get('/report-quality-qc', [RptQualityController::class, 'indexQc'])->name('report-quality.qc.index');
-    Route::get('/report-quality-preview-qc', [RptQualityController::class, 'exportLayoutPreviewQc'])->name('report-quality.qc.export.view');
-    Route::get('/report-quality-pdf-qc', [RptQualityController::class, 'exportPdfQc'])->name('report-quality.qc.export.pdf');
+    // ================= PRODUKSI =================
+    Route::prefix('report-quality')->name('report-quality.')->group(function () {
+        Route::resource('/', RptQualityController::class)->only(['index', 'show'])->names([
+            'index' => 'index',
+            'show'  => 'show',
+        ]);
 
+        // approve / reject per tanggal
+        Route::post('/approve-date', [RptQualityController::class, 'approveDate'])->name('approve-date');
+        Route::post('/reject-date', [RptQualityController::class, 'rejectDate'])->name('reject-date');
+
+        // approve / reject per tiket
+        Route::post('/{id}/approve', [RptQualityController::class, 'approveTicket'])->name('approve');
+        Route::post('/{id}/reject', [RptQualityController::class, 'rejectTicket'])->name('reject');
+
+        // export
+        Route::get('/preview', [RptQualityController::class, 'exportLayoutPreview'])->name('export.view');
+        Route::get('/excel', [RptQualityController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/pdf', [RptQualityController::class, 'exportPdf'])->name('export.pdf');
+    });
+
+    // ================= QC =================
+    Route::prefix('report-quality-qc')->name('report-quality.qc.')->group(function () {
+        Route::get('/', [RptQualityController::class, 'indexQc'])->name('index');
+
+        // approve / reject per tanggal
+        Route::post('/approve-date', [RptQualityController::class, 'approveDateQc'])->name('approve-date');
+        Route::post('/reject-date', [RptQualityController::class, 'rejectDateQc'])->name('reject-date');
+
+        // approve / reject per tiket
+        Route::post('/{id}/approve', [RptQualityController::class, 'approveTicketQc'])->name('approve');
+        Route::post('/{id}/reject', [RptQualityController::class, 'rejectTicketQc'])->name('reject');
+
+        // export
+        Route::get('/preview', [RptQualityController::class, 'exportLayoutPreviewQc'])->name('export.view');
+        Route::get('/pdf', [RptQualityController::class, 'exportPdfQc'])->name('export.pdf');
+    });
 
 
 

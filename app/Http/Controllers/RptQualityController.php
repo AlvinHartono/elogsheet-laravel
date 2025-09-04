@@ -11,419 +11,548 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class RptQualityController extends Controller
 {
+    /**
+     * INDEX (untuk report normal)
+     */
     public function index(Request $request)
     {
-        $query = LSQualityReport::query();
-
-        // Default hari ini
         $tanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
-        $query->whereDate('posting_date', $tanggal);
 
-        // Filter by time
-        if ($request->filled('filter_jam')) {
-            $query->where('time', $request->filter_jam);
-        }
-
-        // Filter by work center
-        if ($request->filled('filter_work_center')) {
-            $query->where('work_center', $request->filter_work_center);
-        }
-
-        // Ambil data utama
-        $reports = $query
-            ->reorder()
-            ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
-            ->orderBy('shift', 'asc')
-            ->orderBy('time', 'asc')
+        $reports = $this->buildBaseQuery($request, $tanggal)
             ->paginate(8)
             ->withQueryString();
 
-        // Status shift
-        $shiftStatuses = [
-            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:59:59'),
-            'shift2' => $this->checkShiftStatus($tanggal, '16:00:00', '23:59:59'),
-            'shift3' => $this->checkShiftStatus($tanggal, '00:00:00', '07:59:59'),
-        ];
-
-        // Ambil list work center unik untuk dropdown
-        $workCenters = LSQualityReport::select('work_center')->distinct()->get();
+        $shiftStatuses = $this->getShiftStatuses($tanggal);
+        $workCenters   = LSQualityReport::select('work_center')->distinct()->get();
 
         return view('rpt_quality.index', compact('reports', 'shiftStatuses', 'tanggal', 'workCenters'));
     }
 
+    /**
+     * INDEX (untuk QC)
+     */
+    public function indexQc(Request $request)
+    {
+        $tanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
 
+        $reports = $this->buildBaseQuery($request, $tanggal)
+            ->paginate(8)
+            ->withQueryString();
 
+        $shiftStatuses = $this->getShiftStatuses($tanggal);
+        $workCenters   = LSQualityReport::select('work_center')->distinct()->get();
+
+        $signaturesQc = $this->getSignaturesQc($tanggal, $request->input('work_center'));
+
+        // Panggil helper function
+        $approvalStatus = $this->getApprovalStatus($tanggal);
+
+        return view('rpt_quality.QC.index', compact(
+            'reports',
+            'shiftStatuses',
+            'tanggal',
+            'workCenters',
+            'signaturesQc',
+        ) + $approvalStatus);
+    }
+
+    /**
+     * SHOW detail report
+     */
     public function show($id)
     {
         $report = LSQualityReport::findOrFail($id);
         return view('rpt_quality.show', compact('report'));
     }
 
+    /**
+     * EXPORT Excel
+     */
     public function exportExcel(Request $request)
     {
-        $filterTanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
-        $filename = 'logsheet_quality_report_' . Carbon::parse($filterTanggal)->format('Y_m_d') . '.xlsx';
+        $tanggal  = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
+        $filename = 'logsheet_quality_report_' . Carbon::parse($tanggal)->format('Y_m_d') . '.xlsx';
 
-        return Excel::download(new LSQualityExport($filterTanggal), $filename);
+        return Excel::download(new LSQualityExport($tanggal), $filename);
+    }
+
+    /**
+     * EXPORT Layout Preview (normal)
+     */
+    public function exportLayoutPreview(Request $request)
+    {
+        return $this->renderPreview($request, 'rpt_quality.preview');
+    }
+
+    /**
+     * EXPORT Layout Preview (QC)
+     */
+    public function exportLayoutPreviewQc(Request $request)
+    {
+        return $this->renderPreview($request, 'rpt_quality.QC.preview');
+    }
+
+    /**
+     * EXPORT PDF (normal)
+     */
+    public function exportPdf(Request $request)
+    {
+        return $this->renderPdf($request, 'exports.report_quality_layout_pdf');
+    }
+
+    /**
+     * EXPORT PDF (QC)
+     */
+    public function exportPdfQc(Request $request)
+    {
+        return $this->renderPdf($request, 'exports.report_quality_layout_pdf_qc');
+    }
+
+    /**
+     * APPROVE all by date
+     */
+    public function approveDate(Request $request)
+    {
+        $date = $request->posting_date;
+
+        LSQualityReport::whereDate('posting_date', $date)->update([
+            'checked_status'         => 'Approved',
+            'checked_status_remarks' => null,
+            'checked_date'           => now(),
+            'checked_by'             => auth()->user()->username ?? auth()->user()->name,
+        ]);
+
+        return back()->with('success', "Semua data tanggal $date berhasil di-approve.");
+    }
+
+    /**
+     * REJECT all by date
+     */
+    public function rejectDate(Request $request)
+    {
+        $request->validate([
+            'posting_date' => 'required|date',
+            'remark'       => 'nullable|string|max:255',
+        ]);
+
+        $date = $request->posting_date;
+
+        LSQualityReport::whereDate('posting_date', $date)->update([
+            'checked_status'         => 'Rejected',
+            'checked_status_remarks' => $request->remark,
+            'checked_date'           => now(),
+            'checked_by'             => auth()->user()->username ?? auth()->user()->name,
+        ]);
+
+        return back()->with('success', "Semua data tanggal $date berhasil direject dengan alasan: {$request->remark}");
+    }
+
+    /**
+     * APPROVE all by date QC
+     */
+    public function approveDateQc(Request $request)
+    {
+        $date = $request->posting_date;
+
+        // Cek kondisi prepared_status
+        $reports = LSQualityReport::whereDate('posting_date', $date)->get();
+
+        if ($reports->isEmpty()) {
+            return back()->with('error', "Tidak ada data pada tanggal $date.");
+        }
+
+        // Kalau ada salah satu yang belum di-prepare
+        if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+            return back()->with('error', 'Belum dilakukan prepared oleh shift leader.');
+        }
+
+        // Kalau ada yang di-reject oleh shift leader
+        if ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
+            return back()->with('error', 'Data sudah direject oleh shift leader.');
+        }
+
+        // Hanya approve jika prepared_status = Approved
+        if ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
+            LSQualityReport::whereDate('posting_date', $date)->update([
+                'checked_status'         => 'Approved',
+                'checked_status_remarks' => null,
+                'checked_date'           => now(),
+                'checked_by'             => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Semua data tanggal $date berhasil di-approve.");
+        }
+
+        return back()->with('error', 'Terdapat data yang tidak valid untuk di-approve.');
+    }
+
+    /**
+     * REJECT all by date QC
+     */
+    public function rejectDateQc(Request $request)
+    {
+        $request->validate([
+            'posting_date' => 'required|date',
+            'remark'       => 'nullable|string|max:255',
+        ]);
+
+        $date = $request->posting_date;
+        $reports = LSQualityReport::whereDate('posting_date', $date)->get();
+
+        if ($reports->isEmpty()) {
+            return back()->with('error', "Tidak ada data pada tanggal $date.");
+        }
+
+        if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+            return back()->with('error', 'Belum dilakukan prepared oleh shift leader.');
+        }
+
+        if ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
+            return back()->with('error', 'Data sudah direject oleh shift leader, tidak bisa direject ulang.');
+        }
+
+        if ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
+            LSQualityReport::whereDate('posting_date', $date)->update([
+                'checked_status'         => 'Rejected',
+                'checked_status_remarks' => $request->remark,
+                'checked_date'           => now(),
+                'checked_by'             => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Semua data tanggal $date berhasil direject dengan alasan: {$request->remark}");
+        }
+
+        return back()->with('error', 'Terdapat data yang tidak valid untuk direject.');
     }
 
 
-    public function exportLayoutPreview(Request $request)
+    /**
+     * APPROVE by ticket id Produksi
+     */
+    public function approveTicket($id)
     {
-        $selectedDate = $request->input('filter_tanggal', now()->toDateString());
-        $workCenter   = $request->input('filter_work_center'); // ambil work center dari filter
+        $report = LSQualityReport::findOrFail($id);
 
-        // Data tabel utama (untuk grid)
-        $dataQuery = LSQualityReport::whereDate('posting_date', $selectedDate);
+        $report->update([
+            'approved_status'         => 'Approved',
+            'approved_status_remarks' => null,
+            'approved_date'           => now(),
+            'approved_by'             => auth()->user()->username ?? auth()->user()->name,
+        ]);
 
-        if (!empty($workCenter)) {
-            $dataQuery->where('work_center', $workCenter);
+        return back()->with('success', "Tiket {$report->id} berhasil di-approve (Produksi).");
+    }
+
+    /**
+     * REJECT by ticket id Produksi
+     */
+    public function rejectTicket(Request $request, $id)
+    {
+        $request->validate([
+            'remark' => 'nullable|string|max:255',
+        ]);
+
+        $report = LSQualityReport::findOrFail($id);
+
+        $report->update([
+            'approved_status'         => 'Rejected',
+            'approved_status_remarks' => $request->remark,
+            'approved_date'           => now(),
+            'approved_by'             => auth()->user()->username ?? auth()->user()->name,
+        ]);
+
+        return back()->with('success', "Tiket {$report->id} berhasil direject (Produksi).");
+    }
+
+    /**
+     * APPROVE by ticket id QC
+     */
+    public function approveTicketQc($id)
+    {
+        $report = LSQualityReport::findOrFail($id);
+
+        $report->update([
+            'prepared_status'         => 'Approved',
+            'prepared_status_remarks' => null,
+            'prepared_date'           => now(),
+            'prepared_by'             => auth()->user()->username ?? auth()->user()->name,
+        ]);
+
+        return back()->with('success', "Tiket {$report->id} berhasil di-approve (QC).");
+    }
+
+    /**
+     * REJECT by ticket id QC
+     */
+    public function rejectTicketQc(Request $request, $id)
+    {
+        $request->validate([
+            'remark' => 'nullable|string|max:255',
+        ]);
+
+        $report = LSQualityReport::findOrFail($id);
+
+        $report->update([
+            'prepared_status'         => 'Rejected',
+            'prepared_status_remarks' => $request->remark,
+            'prepared_date'           => now(),
+            'prepared_by'             => auth()->user()->username ?? auth()->user()->name,
+        ]);
+
+        return back()->with('success', "Tiket {$report->id} berhasil direject (QC).");
+    }
+
+    /* ==========================================================================
+     * PRIVATE HELPERS
+     * ========================================================================== */
+
+    private function buildBaseQuery(Request $request, string $tanggal)
+    {
+        $query = LSQualityReport::query()->whereDate('posting_date', $tanggal);
+
+        if ($request->filled('filter_jam')) {
+            $query->where('time', $request->filter_jam);
         }
 
-        $data = $dataQuery
-            ->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
-            ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
-            ->orderByRaw("CASE
-        WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
-        WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
-        WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
-        ELSE 4 END")
-            ->orderBy('time', 'asc')
-            ->get();
+        if ($request->filled('filter_work_center')) {
+            $query->where('work_center', $request->filter_work_center);
+        }
 
+        return $query->reorder()
+            ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
+            ->orderBy('shift', 'asc')
+            ->orderBy('time', 'asc');
+    }
 
-        // Grouping jika tidak filter work_center
-        $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect();
-
-        // Helper tanda tangan per shift
-        $getShiftSignature = function (string $date, string $start, string $end) use ($workCenter) {
-            $query = LSQualityReport::whereDate('posting_date', $date)
-                ->whereBetween('time', [$start, $end])
-                ->where('prepared_status', 'Approved');
-
-            if (!empty($workCenter)) {
-                $query->where('work_center', $workCenter);
-            }
-
-            $row = $query->orderBy('time', 'desc')
-                ->first(['prepared_by as name', 'prepared_date as date']);
-
-            return $row ? ['name' => $row->name, 'date' => $row->date] : null;
-        };
-
-        $signatures = [
-            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:59:59'),
-            'shift2' => $getShiftSignature($selectedDate, '16:00:00', '23:59:59'),
-            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59'),
+    private function getShiftStatuses(string $tanggal): array
+    {
+        return [
+            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:59:59'),
+            'shift2' => $this->checkShiftStatus($tanggal, '16:00:00', '23:59:59'),
+            'shift3' => $this->checkShiftStatus($tanggal, '00:00:00', '07:59:59'),
         ];
+    }
 
-        $sign = $data->first();
+    private function renderPreview(Request $request, string $view)
+    {
+        $tanggal    = $request->input('filter_tanggal', now()->toDateString());
+        $workCenter = $request->input('filter_work_center');
 
-        // --- Ambil form info sesuai selectedDate ---
-        $formInfoFirstQuery = LSQualityReport::whereDate('posting_date', $selectedDate);
-        $formInfoLastQuery  = LSQualityReport::whereDate('posting_date', $selectedDate);
+        $data        = $this->getMainData($tanggal, $workCenter);
+        $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect();
+        $signatures  = $this->getSignatures($tanggal, $workCenter);
+        $signaturesQc = $this->getSignaturesQc($tanggal, $workCenter);
+        $sign        = $data->first();
 
-        if (!empty($workCenter)) {
-            $formInfoFirstQuery->where('work_center', $workCenter);
-            $formInfoLastQuery->where('work_center', $workCenter);
-        }
+        [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
+        $refinery = $this->getRefinery($tanggal, $workCenter);
+        $oilType  = $this->getOilType($tanggal, $workCenter);
 
-        $formInfoFirst = $formInfoFirstQuery
-            ->orderBy('revision_date', 'asc')
-            ->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
-
-        $formInfoLast = $formInfoLastQuery
-            ->orderBy('revision_date', 'desc')
-            ->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
-
-        // --- Ambil refinery name dari join ---
-        $refineryQuery = LSQualityReport::whereDate('posting_date', $selectedDate)
-            ->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
-            ->select('t_quality_report_refinery.work_center', 'm_mastervalue.name');
-
-        if (!empty($workCenter)) {
-            $refineryQuery->where('t_quality_report_refinery.work_center', $workCenter);
-        }
-
-        $refinery = $refineryQuery->first();
-
-        $oilTypeQuery = LSQualityReport::whereDate('posting_date', $selectedDate)
-            ->select('oil_type');
-
-        if (!empty($workCenter)) {
-            $oilTypeQuery->where('work_center', $workCenter);
-        }
-
-        $oilType = $oilTypeQuery->first();
-
-        return view('rpt_quality.preview', compact(
+        return view($view, compact(
             'data',
             'groupedData',
-            'selectedDate',
+            'tanggal',
+            'workCenter',
             'signatures',
+            'signaturesQc',
             'sign',
             'formInfoFirst',
             'formInfoLast',
             'refinery',
-            'oilType',
-            'workCenter'
+            'oilType'
         ));
     }
 
-
-    public function exportPdf(Request $request)
+    private function renderPdf(Request $request, string $view)
     {
-        $selectedDate = $request->input('filter_tanggal', now()->toDateString());
-        $workCenter   = $request->input('filter_work_center'); // konsisten dengan preview
+        $tanggal    = $request->input('filter_tanggal', now()->toDateString());
+        $workCenter = $request->input('filter_work_center');
 
-        // Data tabel utama
-        $dataQuery = LSQualityReport::whereDate('posting_date', $selectedDate);
-
-        if (!empty($workCenter)) {
-            $dataQuery->where('work_center', $workCenter);
-        }
-
-        $data = $dataQuery
-            ->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
-            ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
-            ->orderByRaw("CASE
-            WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
-            WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
-            WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
-            ELSE 4 END")
-            ->orderBy('time', 'asc')
-            ->get();
-
-        // Grouping jika tidak filter work_center
+        $data        = $this->getMainData($tanggal, $workCenter);
         $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect();
 
-        // Helper tanda tangan per shift
-        $getShiftSignature = function (string $date, string $start, string $end) use ($workCenter) {
-            $query = LSQualityReport::whereDate('posting_date', $date)
-                ->whereBetween('time', [$start, $end])
-                ->where('prepared_status', 'Approved');
+        // Versi produksi (tetap dikirim kalau view produksi perlu)
+        $signatures   = $this->getSignatures($tanggal, $workCenter);
+        // Versi QC (punya prepared & acknowledge)
+        $signaturesQc = $this->getSignaturesQc($tanggal, $workCenter);
 
-            if (!empty($workCenter)) {
-                $query->where('work_center', $workCenter);
-            }
+        // Ambil shift terakhir yang punya prepared/acknowledge untuk opsi 2
+        $lastShift = collect($signaturesQc)
+            ->filter(fn($s) => data_get($s, 'prepared') || data_get($s, 'acknowledge'))
+            ->last();
 
-            $row = $query->orderBy('time', 'desc')
-                ->first(['prepared_by as name', 'prepared_date as date']);
+        [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
+        $refinery = $this->getRefinery($tanggal, $workCenter);
+        $oilType  = $this->getOilType($tanggal, $workCenter);
 
-            return $row ? ['name' => $row->name, 'date' => $row->date] : null;
-        };
-
-        $signatures = [
-            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:59:59'),
-            'shift2' => $getShiftSignature($selectedDate, '16:00:00', '23:59:59'),
-            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59'),
-        ];
-
-
-        // --- Ambil form info sesuai selectedDate ---
-        $formInfoFirstQuery = LSQualityReport::whereDate('posting_date', $selectedDate);
-        $formInfoLastQuery  = LSQualityReport::whereDate('posting_date', $selectedDate);
-
-        if (!empty($workCenter)) {
-            $formInfoFirstQuery->where('work_center', $workCenter);
-            $formInfoLastQuery->where('work_center', $workCenter);
-        }
-
-        $formInfoFirst = $formInfoFirstQuery
-            ->orderBy('revision_date', 'asc')
-            ->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
-
-        $formInfoLast = $formInfoLastQuery
-            ->orderBy('revision_date', 'desc')
-            ->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
-
-        // --- Ambil refinery name dari join ---
-        $refineryQuery = LSQualityReport::whereDate('posting_date', $selectedDate)
-            ->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
-            ->select('t_quality_report_refinery.work_center', 'm_mastervalue.name');
-
-        if (!empty($workCenter)) {
-            $refineryQuery->where('t_quality_report_refinery.work_center', $workCenter);
-        }
-
-        $refinery = $refineryQuery->first();
-
-        // --- Ambil oilType ---
-        $oilTypeQuery = LSQualityReport::whereDate('posting_date', $selectedDate)
-            ->select('oil_type');
-
-        if (!empty($workCenter)) {
-            $oilTypeQuery->where('work_center', $workCenter);
-        }
-
-        $oilType = $oilTypeQuery->first();
-
-        // Render ke PDF
-        $pdf = Pdf::loadView('exports.report_quality_layout_pdf', compact(
+        $pdf = Pdf::loadView($view, compact(
             'data',
             'groupedData',
-            'selectedDate',
+            'tanggal',
             'workCenter',
             'formInfoFirst',
             'formInfoLast',
             'refinery',
             'oilType',
-            'signatures'
-        ))
-            ->setPaper('a3', 'landscape');
+            'signatures',     // prod
+            'signaturesQc',   // qc
+            'lastShift'       // qc opsi 2
+        ))->setPaper('a3', 'landscape');
 
-        return $pdf->stream('quality_report_' . $selectedDate . '.pdf');
+        return $pdf->stream("quality_report_{$tanggal}.pdf");
     }
 
 
-
-    public function approveDate(Request $request)
+    private function getMainData(string $tanggal, ?string $workCenter)
     {
-        $date = $request->posting_date; // harusnya ini
+        $query = LSQualityReport::whereDate('posting_date', $tanggal);
 
-        LSQualityReport::whereDate('posting_date', $date)
-            ->update([
-                'checked_status' => 'Approved',
-                'checked_status_remarks' => null,
-                'checked_date' => now()->format('Y-m-d H:i:s'),
-                'checked_by' => auth()->user()->username ?? auth()->user()->name,
-            ]);
+        if ($workCenter) {
+            $query->where('work_center', $workCenter);
+        }
 
-        return redirect()->back()->with('success', "Semua data tanggal $date berhasil di-approve.");
+        return $query->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
+            ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
+            ->orderByRaw("CASE
+                WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
+                WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
+                WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
+                ELSE 4 END")
+            ->orderBy('time')
+            ->get();
+    }
+
+    private function getSignatures(string $tanggal, ?string $workCenter): array
+    {
+        $get = function ($start, $end) use ($tanggal, $workCenter) {
+            $q = LSQualityReport::whereDate('posting_date', $tanggal)
+                ->whereBetween('time', [$start, $end])
+                ->where('prepared_status', 'Approved');
+
+            if ($workCenter) {
+                $q->where('work_center', $workCenter);
+            }
+
+            $row = $q->orderByDesc('time')->first(['prepared_by as name', 'prepared_date as date']);
+            return $row ? ['name' => $row->name, 'date' => $row->date] : null;
+        };
+
+        return [
+            'shift1' => $get('08:00:00', '15:59:59'),
+            'shift2' => $get('16:00:00', '23:59:59'),
+            'shift3' => $get('00:00:00', '07:59:59'),
+        ];
+    }
+
+    private function getSignaturesQc(string $tanggal, ?string $workCenter): array
+    {
+        $get = function ($start, $end) use ($tanggal, $workCenter) {
+            $q = LSQualityReport::whereDate('posting_date', $tanggal)
+                ->whereBetween('time', [$start, $end]);
+
+            if ($workCenter) {
+                $q->where('work_center', $workCenter);
+            }
+
+            $prepared = (clone $q)->orderByDesc('time')->first(['prepared_by', 'prepared_date']);
+            $ack      = (clone $q)->orderByDesc('time')->first(['checked_by', 'checked_date']);
+
+            return [
+                'prepared'    => $prepared ? ['name' => $prepared->prepared_by, 'date' => $prepared->prepared_date] : null,
+                'acknowledge' => $ack ? ['name' => $ack->checked_by, 'date' => $ack->checked_date] : null,
+            ];
+        };
+
+        return [
+            'shift1' => $get('08:00:00', '15:59:59'),
+            'shift2' => $get('16:00:00', '23:59:59'),
+            'shift3' => $get('00:00:00', '07:59:59'),
+        ];
     }
 
 
-
-
-    public function rejectDate(Request $request)
+    private function getFormInfo(string $tanggal, ?string $workCenter): array
     {
-        $request->validate([
-            'posting_date' => 'required|date',
-            'remark' => 'nullable|string|max:255',
-        ]);
+        $base = LSQualityReport::whereDate('posting_date', $tanggal);
+        $firstQuery = clone $base;
+        $lastQuery  = clone $base;
 
-        $date = $request->posting_date;
+        if ($workCenter) {
+            $firstQuery->where('work_center', $workCenter);
+            $lastQuery->where('work_center', $workCenter);
+        }
 
-        LSQualityReport::whereDate('posting_date', $date)
-            ->update([
-                'checked_status' => 'Rejected',
-                'checked_status_remarks' => $request->remark, // simpan remark ke field
-                'checked_date' => now(),
-                'checked_by' => auth()->user()->username ?? auth()->user()->name,
-            ]);
+        $first = $firstQuery->orderBy('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
+        $last  = $lastQuery->orderByDesc('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
 
-        return redirect()->back()->with('success', "Semua data tanggal $date berhasil direject dengan alasan: {$request->remark}");
+        return [$first, $last];
     }
 
-
-    /**
-     * Helper untuk cek status shift
-     */
-    private function checkShiftStatus($tanggal, $start, $end): string
+    private function getRefinery(string $tanggal, ?string $workCenter)
     {
-        $query = LSQualityReport::whereDate('posting_date', $tanggal)
-            ->whereBetween('time', [$start, $end]);
+        $q = LSQualityReport::whereDate('posting_date', $tanggal)
+            ->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
+            ->select('t_quality_report_refinery.work_center', 'm_mastervalue.name');
 
-        if (!$query->exists()) {
+        if ($workCenter) {
+            $q->where('t_quality_report_refinery.work_center', $workCenter);
+        }
+
+        return $q->first();
+    }
+
+    private function getOilType(string $tanggal, ?string $workCenter)
+    {
+        $q = LSQualityReport::whereDate('posting_date', $tanggal)->select('oil_type');
+
+        if ($workCenter) {
+            $q->where('work_center', $workCenter);
+        }
+
+        return $q->first();
+    }
+
+    private function checkShiftStatus(string $tanggal, string $start, string $end): string
+    {
+        $q = LSQualityReport::whereDate('posting_date', $tanggal)->whereBetween('time', [$start, $end]);
+
+        if (!$q->exists()) {
             return 'Belum Ada Transaksi';
         }
 
-        $pending = $query->where(function ($q) {
-            $q->whereNull('checked_status')
+        $pending = (clone $q)->where(function ($sub) {
+            $sub->whereNull('checked_status')
                 ->orWhere('checked_status', '!=', 'Approved');
         })->exists();
 
         return $pending ? 'Belum Selesai' : 'Approved Semua';
     }
 
-
-
-    public function indexQc(Request $request)
+    /**
+     * Cek apakah tombol approve/reject bisa aktif untuk tanggal tertentu
+     */
+    private function getApprovalStatus(string $tanggal): array
     {
-        $query = LSQualityReport::query();
+        $reports = LSQualityReport::whereDate('posting_date', $tanggal)->get();
 
-        // Gunakan hari ini jika filter_tanggal tidak diisi
-        $tanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
+        $statusMessage = null;
+        $canApproveReject = false;
 
-        $query->whereDate('posting_date', $tanggal);
-
-        // Filter by time (jika diisi)
-        if ($request->filled('filter_jam')) {
-            $query->where('time', $request->filter_jam);
+        if ($reports->isEmpty()) {
+            $statusMessage = "Tidak ada data pada tanggal $tanggal.";
+        } elseif ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+            $statusMessage = 'Belum dilakukan prepared oleh shift leader.';
+        } elseif ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
+            $statusMessage = 'Data sudah direject oleh shift leader.';
+        } elseif ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
+            $canApproveReject = true;
+        } else {
+            $statusMessage = 'Terdapat data yang tidak valid untuk diproses.';
         }
 
-        // Ambil data utama dengan custom order
-        $reports = $query
-            ->reorder()
-            ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
-            ->orderBy('shift', 'asc')
-            ->orderBy('time', 'asc')
-            ->paginate(8)
-            ->withQueryString();
-
-        // --- Pengecekan status shift ---
-        $shiftStatuses = [
-            'shift1' => $this->checkShiftStatus($tanggal, '08:00:00', '15:59:59'),
-            'shift2' => $this->checkShiftStatus($tanggal, '16:00:00', '23:59:59'),
-            'shift3' => $this->checkShiftStatus($tanggal, '00:00:00', '07:59:59'),
+        return [
+            'canApproveReject' => $canApproveReject,
+            'statusMessage'    => $statusMessage,
         ];
-
-        return view('rpt_quality.QC.index', compact('reports', 'shiftStatuses', 'tanggal'));
-    }
-
-    public function exportLayoutPreviewQc(Request $request)
-    {
-        $selectedDate = $request->input('filter_tanggal', now()->toDateString());
-
-        // Data tabel utama (untuk grid)
-        $data = LSQualityReport::whereDate('posting_date', $selectedDate)
-            ->orderByRaw("CASE
-            WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
-            WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
-            WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
-            ELSE 4 END")
-            ->orderBy('time', 'asc')
-            ->get();
-
-        // Helper tanda tangan per shift
-        $getShiftSignature = function (string $date, string $start, string $end) {
-            $row = LSQualityReport::whereDate('posting_date', $date)
-                ->whereBetween('time', [$start, $end])
-                ->where('prepared_status', 'Approved')
-                ->orderBy('time', 'desc')
-                ->first(['prepared_by as name', 'prepared_date as date']);
-
-            return $row ? ['name' => $row->name, 'date' => $row->date] : null;
-        };
-
-        $signatures = [
-            'shift1' => $getShiftSignature($selectedDate, '08:00:00', '15:59:59'),
-            'shift2' => $getShiftSignature($selectedDate, '16:00:00', '23:59:59'),
-            'shift3' => $getShiftSignature($selectedDate, '00:00:00', '07:59:59'),
-        ];
-
-        // Kalau kamu masih butuh "Checked by" dari salah satu baris, pakai baris pertama hari itu
-        $sign = $data->first(); // aman kalau kolom checked_by/checked_date memang ada di LSQualityReport
-
-        return view('rpt_quality.QC.preview', compact('data', 'selectedDate', 'signatures', 'sign'));
-    }
-
-    public function exportPdfQc(Request $request)
-    {
-        $selectedDate = $request->input('filter_tanggal', now()->toDateString());
-
-        $data = LSQualityReport::whereDate('posting_date', $selectedDate)
-            ->orderByRaw("CASE
-        WHEN time >= '08:00:00' AND time <= '15:59:59' THEN 1
-        WHEN time >= '16:00:00' AND time <= '23:59:59' THEN 2
-        WHEN time >= '00:00:00' AND time <= '07:59:59' THEN 3
-        ELSE 4 END")
-            ->orderBy('time', 'asc')
-            ->get();
-
-        $pdf = Pdf::loadView('exports.report_quality_layout_pdf_qc', compact('data', 'selectedDate'))
-            ->setPaper('a3', 'landscape');
-
-        return $pdf->stream('quality_report_' . $selectedDate . '.pdf');
     }
 }

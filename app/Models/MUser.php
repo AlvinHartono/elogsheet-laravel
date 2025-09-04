@@ -36,4 +36,8 @@ class MUser extends Authenticatable
   {
     return $this->name ?? $this->username ?? $this->email ?? 'User';
   }
+  public function roleMenus()
+  {
+    return $this->hasMany(\App\Models\MRoleMenu::class, 'role_code', 'roles');
+  }
 }

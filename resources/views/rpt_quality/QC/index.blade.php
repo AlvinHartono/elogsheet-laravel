@@ -4,12 +4,6 @@
 
 @section('content')
 
-    @php
-        use Carbon\Carbon;
-        $selectedDate = request('filter_tanggal', Carbon::today()->format('Y-m-d'));
-    @endphp
-
-
     <div class="bg-white p-6 rounded shadow-md">
         <div class="flex items-center justify-between mb-6">
             <div>
@@ -51,7 +45,10 @@
                     </svg>
                     View Layout
                 </a> --}}
-                <a href="{{ route('report-quality.qc.export.view', ['filter_tanggal' => $tanggal]) }}"
+                <a href="{{ route('report-quality.qc.export.view', [
+                    'filter_tanggal' => $tanggal,
+                    'filter_work_center' => request('filter_work_center'),
+                ]) }}"
                     class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow transition">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor" stroke-width="2">
@@ -65,7 +62,11 @@
 
                 <div class="flex flex-col sm:flex-row gap-2">
                     {{-- Tombol Download --}}
-                    <a href="{{ route('report-quality.qc.export.pdf', ['filter_tanggal' => $selectedDate, 'mode' => 'preview']) }}"
+                    <a href="{{ route('report-quality.qc.export.pdf', [
+                        'filter_tanggal' => $tanggal,
+                        'filter_work_center' => request('filter_work_center'),
+                        'mode' => 'preview',
+                    ]) }}"
                         class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow transition"
                         target="_blank">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
@@ -87,9 +88,10 @@
             <form method="GET" action="{{ route('report-quality.qc.index') }}" class="flex flex-wrap items-end gap-4">
                 <div class="w-full sm:w-44">
                     <label for="filter_tanggal" class="block text-sm font-medium text-gray-700">Date</label>
-                    <input type="date" id="filter_tanggal" name="filter_tanggal" value="{{ $selectedDate }}"
+                    <input type="date" id="filter_tanggal" name="filter_tanggal" value="{{ $tanggal }}"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
                 </div>
+
                 <div class="w-full sm:w-32">
                     <label for="filter_jam" class="block text-sm font-medium text-gray-700">Time</label>
                     <select id="filter_jam" name="filter_jam"
@@ -101,6 +103,20 @@
                                 {{ $jam }}
                             </option>
                         @endfor
+                    </select>
+                </div>
+
+                <div class="w-full sm:w-48">
+                    <label for="filter_work_center" class="block text-sm font-medium text-gray-700">Work Center</label>
+                    <select id="filter_work_center" name="filter_work_center"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">Pilih Work Center</option>
+                        @foreach ($workCenters as $wc)
+                            <option value="{{ $wc->work_center }}"
+                                {{ request('filter_work_center') == $wc->work_center ? 'selected' : '' }}>
+                                {{ $wc->work_center }}
+                            </option>
+                        @endforeach
                     </select>
                 </div>
                 {{-- Tombol Filter --}}
@@ -117,57 +133,110 @@
                         </a>
                     @endif
                 </div>
+                @if (empty(request('filter_work_center')))
+                    <div class="mb-4 p-3 text-sm text-blue-800 bg-blue-100 border border-blue-200 rounded-lg">
+                        <strong>Info:</strong> Jika tidak memilih <em>Work Center</em>, sistem akan menampilkan
+                        <span class="font-semibold">semua work center</span> dalam laporan.
+                    </div>
+                @endif
             </form>
         </div>
 
-        {{-- <div x-data="{ openRejectModal: false }">
-        <div class="flex gap-2 mb-4">
-            <form action="{{ route('report-quality.approve-date') }}" method="POST">
-                @csrf
-                <input type="hidden" name="posting_date" value="{{ $selectedDate }}">
-                <button type="submit"
-                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg">
+        @if (session('success'))
+            <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 3000)"
+                class="mb-4 p-3 bg-green-100 text-green-800 rounded shadow transition ease-in-out duration-500">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 3000)"
+                class="mb-4 p-3 bg-red-100 text-red-800 rounded shadow transition ease-in-out duration-500">
+                {{ session('error') }}
+            </div>
+        @endif
+
+
+
+        @if ($statusMessage)
+            <div class="p-3 text-sm text-yellow-800 bg-yellow-100 rounded-lg mb-4">
+                {{ $statusMessage }}
+            </div>
+        @endif
+
+        <div x-data="{ openApproveModal: false, openRejectModal: false }">
+            <div class="flex gap-2 mb-4">
+                {{-- Tombol Approve Hari Ini --}}
+                <button type="button" @click="openApproveModal = true"
+                    class="px-4 py-2 rounded-lg text-sm font-semibold
+               {{ $canApproveReject ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed' }}"
+                    {{ $canApproveReject ? '' : 'disabled' }}>
                     Approve Hari Ini
                 </button>
-            </form>
 
-            <!-- Tombol Reject -->
-            <button type="button" @click="openRejectModal = true"
-                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg">
-                Reject Hari Ini
-            </button>
-        </div>
+                {{-- Tombol Reject Hari Ini --}}
+                <button type="button" @click="openRejectModal = true"
+                    class="px-4 py-2 rounded-lg text-sm font-semibold
+               {{ $canApproveReject ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed' }}"
+                    {{ $canApproveReject ? '' : 'disabled' }}>
+                    Reject Hari Ini
+                </button>
+            </div>
 
-        <!-- Modal Reject -->
-        <div x-show="openRejectModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-            x-cloak>
-            <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-                <h2 class="text-lg font-semibold text-gray-800 mb-4">Reject Laporan</h2>
-
-                <form action="{{ route('report-quality.reject-date') }}" method="POST">
-                    @csrf
-                    <input type="hidden" name="posting_date" value="{{ $selectedDate }}">
-
-                    <div class="mb-4">
-                        <label for="remark" class="block text-sm font-medium text-gray-700">Alasan Reject</label>
-                        <textarea id="remark" name="remark" rows="3" required
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm"></textarea>
-                    </div>
-
-                    <div class="flex justify-end gap-2">
-                        <button type="button" @click="openRejectModal = false"
-                            class="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg text-gray-700">
+            {{-- Modal Approve --}}
+            <div x-show="openApproveModal" x-transition
+                class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                <div class="bg-white p-6 rounded shadow-lg max-w-sm w-full">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Approve</h2>
+                    <p class="text-sm text-gray-600 mb-6">
+                        Apakah Anda yakin ingin <b>Approve</b> semua data pada tanggal <b>{{ $tanggal }}</b>?
+                    </p>
+                    <div class="flex justify-end space-x-2">
+                        <button @click="openApproveModal = false"
+                            class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
                             Batal
                         </button>
-                        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">
-                            Reject
-                        </button>
+                        <form method="POST" action="{{ route('report-quality.qc.approve-date') }}">
+                            @csrf
+                            <input type="hidden" name="posting_date" value="{{ $tanggal }}">
+                            <button type="submit"
+                                class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                                Approve
+                            </button>
+                        </form>
                     </div>
-                </form>
+                </div>
+            </div>
+
+            {{-- Modal Reject --}}
+            <div x-show="openRejectModal" x-transition
+                class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                <div class="bg-white p-6 rounded shadow-lg max-w-sm w-full">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Reject</h2>
+                    <p class="text-sm text-gray-600 mb-4">Silakan masukkan alasan reject untuk semua data tanggal
+                        <b>{{ $tanggal }}</b>:
+                    </p>
+                    <form method="POST" action="{{ route('report-quality.qc.reject-date') }}" class="space-y-4">
+                        @csrf
+                        <input type="hidden" name="posting_date" value="{{ $tanggal }}">
+                        <textarea name="remark" rows="3"
+                            class="w-full border rounded p-2 text-sm focus:ring-red-500 focus:border-red-500"
+                            placeholder="Tuliskan alasan reject..."></textarea>
+
+                        <div class="flex justify-end space-x-2">
+                            <button type="button" @click="openRejectModal = false"
+                                class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                                Batal
+                            </button>
+                            <button type="submit"
+                                class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                                Reject
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div> --}}
-
 
         {{-- Status Shift --}}
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -207,7 +276,9 @@
                         <th class="px-4 py-2 border-b text-left">Oil Type</th>
                         <th class="px-4 py-2 border-b text-left">Tank Source</th>
                         <th class="px-4 py-2 border-b text-left">Entry By</th>
-                        <th class="px-4 py-2 border-b text-center">Status</th>
+                        <th class="px-4 py-2 border-b text-center">Leader Status</th>
+                        <th class="px-4 py-2 border-b text-center">Manager Status</th>
+                        <th class="px-4 py-2 border-b text-center">Action</th>
                         <th class="px-4 py-2 border-b text-left">Detail</th>
                     </tr>
                 </thead>
@@ -232,6 +303,15 @@
                             <td class="px-4 py-2 border-b">{{ $report->rm_tank_source }}</td>
                             <td class="px-4 py-2 border-b">{{ $report->entry_by }} </td>
                             <td class="px-4 py-2 border-b text-center">
+                                @if ($report->prepared_status == 'Approved')
+                                    <span class="px-2 py-1 text-xs rounded bg-green-100 text-green-700">Approved</span>
+                                @elseif ($report->prepared_status == 'Rejected')
+                                    <span class="px-2 py-1 text-xs rounded bg-red-100 text-red-700">Rejected</span>
+                                @else
+                                    <span class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">Pending</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2 border-b text-center">
                                 @if ($report->checked_status == 'Approved')
                                     <span class="px-2 py-1 text-xs rounded bg-green-100 text-green-700">Approved</span>
                                 @elseif ($report->checked_status == 'Rejected')
@@ -239,6 +319,83 @@
                                 @else
                                     <span class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">Pending</span>
                                 @endif
+                            </td>
+                            <td class="px-4 py-2 border-b text-center">
+                                <div class="flex justify-center gap-2" x-data="{ showApprove: false, showReject: false }">
+
+                                    {{-- Approve --}}
+                                    <button @click="showApprove = true"
+                                        class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 shadow
+                                        {{ $report->checked_status === 'Approved' ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                        {{ $report->checked_status === 'Approved' ? 'disabled' : '' }}>
+                                        Approve
+                                    </button>
+
+                                    {{-- Reject --}}
+                                    <button @click="showReject = true"
+                                        class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow
+                                        {{ $report->checked_status === 'Rejected' ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                        {{ $report->checked_status === 'Rejected' ? 'disabled' : '' }}>
+                                        Reject
+                                    </button>
+
+                                    {{-- Modal Approve --}}
+                                    <div x-show="showApprove" x-transition
+                                        class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50"
+                                        style="display:none;">
+                                        <div class="bg-white p-6 rounded shadow-lg max-w-sm w-full">
+                                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Approve</h2>
+                                            <p class="text-sm text-gray-600 mb-6">Apakah Anda yakin ingin <b>Approve</b>
+                                                tiket ini?</p>
+                                            <div class="flex justify-end space-x-2">
+                                                <button @click="showApprove = false"
+                                                    class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                                                    Batal
+                                                </button>
+                                                <form method="POST"
+                                                    action="{{ route('report-quality.qc.approve', $report->id) }}">
+                                                    @csrf
+                                                    <button type="submit"
+                                                        class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                                                        Approve
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Modal Reject --}}
+                                    <div x-show="showReject" x-transition
+                                        class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50"
+                                        style="display:none;">
+                                        <div class="bg-white p-6 rounded shadow-lg max-w-sm w-full">
+                                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Reject</h2>
+                                            <p class="text-sm text-gray-600 mb-4">Silakan masukkan alasan reject tiket ini:
+                                            </p>
+
+                                            <form method="POST"
+                                                action="{{ route('report-quality.qc.reject', $report->id) }}"
+                                                class="space-y-4">
+                                                @csrf
+                                                {{-- Textarea alasan reject --}}
+                                                <textarea name="remark" rows="3"
+                                                    class="w-full border rounded p-2 text-sm focus:ring-red-500 focus:border-red-500"
+                                                    placeholder="Tuliskan alasan reject..."></textarea>
+
+                                                <div class="flex justify-end space-x-2">
+                                                    <button type="button" @click="showReject = false"
+                                                        class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                                                        Batal
+                                                    </button>
+                                                    <button type="submit"
+                                                        class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-4 py-2 border-b text-center">
                                 <a href="{{ route('report-quality.show', $report->id) }}"

@@ -64,14 +64,34 @@
 
 <body>
     <div class="text-center">
-        <h2 style="text-transform: uppercase; font-weight: bold;">PT.PRISCOLIN</h2>
-        <h3 style="text-transform: uppercase; font-weight: bold;">Daily Quality Refinery 500 MT Production Report</h3>
-        <p>Date: {{ \Carbon\Carbon::parse($selectedDate)->format('d-m-Y') }}</p>
+        <h2 style="text-transform: uppercase; font-weight: bold;">PT. PRISCOLLIN</h2>
+        <h3 style="text-transform: uppercase; font-weight: bold;">
+            DAILY QUALITY REFINERY PRODUCTION REPORT
+        </h3>
+
+        {{-- Jika filter work center --}}
+        @if (!empty($workCenter) && isset($refinery))
+            <p>{{ $refinery->name ?? '-' }} {{ $refinery->capacity ?? '' }}</p>
+        @else
+            {{-- Jika ALL, tampilkan semua refinery yang ada di groupedData --}}
+            <div style="margin-top: 5px;">
+                @foreach ($groupedData as $wc => $rows)
+                    @php $firstRow = $rows->first(); @endphp
+                    <p>{{ $firstRow->refinery_name ?? $wc }} {{ $firstRow->capacity ?? '' }}</p>
+                @endforeach
+            </div>
+        @endif
+
+        <p>Date: {{ \Carbon\Carbon::parse($tanggal)->format('d-m-Y') }}</p>
     </div>
-    <div style="text-align:right; font-size:9px;">
-        <p><strong>Form No.</strong>: FQCO-002</p>
-        <p><strong>Revision</strong>: 0</p>
-        <p><strong>Eff. Date</strong>: 210901</p>
+
+
+    <div style="text-align:right; font-size:9px; position:absolute; top:20px; right:20px;">
+        <p><strong>No. Form</strong>: {{ $formInfoFirst->form_no ?? '-' }}</p>
+        <p><strong>Rev</strong>: {{ $formInfoLast->revision_no ?? '-' }}</p>
+        <p><strong>Eff. Date</strong>:
+            {{ $formInfoFirst && $formInfoFirst->date_issued ? \Carbon\Carbon::parse($formInfoFirst->date_issued)->format('ymd') : '-' }}
+        </p>
     </div>
 
     <!-- Tabel utama -->
@@ -117,55 +137,106 @@
                 <th>M&I (%)</th>
                 <th>To Tank</th>
                 <th>M&I (%)</th>
-                <th>SPTH (%)</th>
+                <th>OC (%)</th>
             </tr>
         </thead>
         <tbody>
-            @foreach ($data as $row)
-                <tr>
-                    <td>{{ optional($row->time)->format('H:i') }}</td>
-                    <td>{{ $row->rm_tank_source }}</td>
-                    <td>{{ $row->rm_flowrate }}</td>
-                    <td>{{ $row->rm_ffa }}</td>
-                    <td>{{ $row->{'rm_m&i'} }}</td>
-                    <td>{{ $row->rm_dobi }}</td>
-                    <td>{{ $row->rm_iv }}</td>
-                    <td>{{ $row->rm_pv }}</td>
-                    <td>{{ $row->rm_av }}</td>
-                    <td>{{ $row->rm_totox }}</td>
-                    <td>{{ $row->rm_color_r }}</td>
-                    <td>{{ $row->rm_color_y }}</td>
-                    <td>{{ $row->rm_color_b }}</td>
-                    <td>{{ $row->bo_color_r }}</td>
-                    <td>{{ $row->bo_color_y }}</td>
-                    <td>{{ $row->bo_color_b }}</td>
-                    <td>{{ $row->bo_break_test }}</td>
-                    <td>{{ $row->fg_ffa }}</td>
-                    <td>{{ $row->fg_moist }}</td>
-                    <td>{{ $row->fg_impurities }}</td>
-                    <td>{{ $row->fg_iv }}</td>
-                    <td>{{ $row->fg_pv }}</td>
-                    <td>{{ $row->fg_color_r }}</td>
-                    <td>{{ $row->fg_color_y }}</td>
-                    <td>{{ $row->fg_color_b }}</td>
-                    <td>{{ $row->fg_tank_to }}</td>
-                    <td>{{ $row->fg_tank_to_others_remarks }}</td>
-                    <td>{{ $row->bp_ffa }}</td>
-                    <td>{{ $row->{'bp_m&i'} }}</td>
-                    <td>{{ $row->bp_to_tank }}</td>
-                    <td>{{ $row->w_sbe_qc }}</td>
-                    <td>{{ $row->{'w_sbe_m&i'} }}</td>
-                    <td>{{ $row->remarks }}</td>
-                </tr>
-            @endforeach
+            @if (!empty($workCenter))
+                {{-- Jika filter 1 work center --}}
+                @foreach ($data as $row)
+                    <tr>
+                        <td>{{ optional($row->time)->format('H:i') }}</td>
+                        <td>{{ $row->rm_tank_source }}</td>
+                        <td>{{ $row->rm_flowrate }}</td>
+                        <td>{{ $row->rm_ffa }}</td>
+                        <td>{{ $row->{'rm_m&i'} }}</td>
+                        <td>{{ $row->rm_dobi }}</td>
+                        <td>{{ $row->rm_iv }}</td>
+                        <td>{{ $row->rm_pv }}</td>
+                        <td>{{ $row->rm_av }}</td>
+                        <td>{{ $row->rm_totox }}</td>
+                        <td>{{ $row->rm_color_r }}</td>
+                        <td>{{ $row->rm_color_y }}</td>
+                        <td>{{ $row->rm_color_b }}</td>
+                        <td>{{ $row->bo_color_r }}</td>
+                        <td>{{ $row->bo_color_y }}</td>
+                        <td>{{ $row->bo_color_b }}</td>
+                        <td>{{ $row->bo_break_test }}</td>
+                        <td>{{ $row->fg_ffa }}</td>
+                        <td>{{ $row->fg_moist }}</td>
+                        <td>{{ $row->fg_impurities }}</td>
+                        <td>{{ $row->fg_iv }}</td>
+                        <td>{{ $row->fg_pv }}</td>
+                        <td>{{ $row->fg_color_r }}</td>
+                        <td>{{ $row->fg_color_y }}</td>
+                        <td>{{ $row->fg_color_b }}</td>
+                        <td>{{ $row->fg_tank_to }}</td>
+                        <td>{{ $row->fg_tank_to_others_remarks }}</td>
+                        <td>{{ $row->bp_ffa }}</td>
+                        <td>{{ $row->{'bp_m&i'} }}</td>
+                        <td>{{ $row->bp_to_tank }}</td>
+                        <td>{{ $row->w_sbe_qc }}</td>
+                        <td>{{ $row->{'w_sbe_m&i'} }}</td>
+                        <td>{{ $row->remarks }}</td>
+                    </tr>
+                @endforeach
+            @else
+                {{-- Jika ALL, group per work center --}}
+                @foreach ($groupedData as $wc => $rows)
+                    <tr>
+                        <td colspan="33" style="text-align:left; font-weight:bold; background:#f3f3f3;">
+                            {{ $rows->first()->refinery_name ?? $wc }}
+                        </td>
+                    </tr>
+                    @foreach ($rows as $row)
+                        <tr>
+                            <td>{{ optional($row->time)->format('H:i') }}</td>
+                            <td>{{ $row->rm_tank_source }}</td>
+                            <td>{{ $row->rm_flowrate }}</td>
+                            <td>{{ $row->rm_ffa }}</td>
+                            <td>{{ $row->{'rm_m&i'} }}</td>
+                            <td>{{ $row->rm_dobi }}</td>
+                            <td>{{ $row->rm_iv }}</td>
+                            <td>{{ $row->rm_pv }}</td>
+                            <td>{{ $row->rm_av }}</td>
+                            <td>{{ $row->rm_totox }}</td>
+                            <td>{{ $row->rm_color_r }}</td>
+                            <td>{{ $row->rm_color_y }}</td>
+                            <td>{{ $row->rm_color_b }}</td>
+                            <td>{{ $row->bo_color_r }}</td>
+                            <td>{{ $row->bo_color_y }}</td>
+                            <td>{{ $row->bo_color_b }}</td>
+                            <td>{{ $row->bo_break_test }}</td>
+                            <td>{{ $row->fg_ffa }}</td>
+                            <td>{{ $row->fg_moist }}</td>
+                            <td>{{ $row->fg_impurities }}</td>
+                            <td>{{ $row->fg_iv }}</td>
+                            <td>{{ $row->fg_pv }}</td>
+                            <td>{{ $row->fg_color_r }}</td>
+                            <td>{{ $row->fg_color_y }}</td>
+                            <td>{{ $row->fg_color_b }}</td>
+                            <td>{{ $row->fg_tank_to }}</td>
+                            <td>{{ $row->fg_tank_to_others_remarks }}</td>
+                            <td>{{ $row->bp_ffa }}</td>
+                            <td>{{ $row->{'bp_m&i'} }}</td>
+                            <td>{{ $row->bp_to_tank }}</td>
+                            <td>{{ $row->w_sbe_qc }}</td>
+                            <td>{{ $row->{'w_sbe_m&i'} }}</td>
+                            <td>{{ $row->remarks }}</td>
+                        </tr>
+                    @endforeach
+                @endforeach
+            @endif
+
             <tr>
                 <td colspan="33"></td>
             </tr>
         </tbody>
+
     </table>
 
     <!-- Bagian bawah -->
-    <div style="margin-top:20px; display:flex; justify-content:space-between;">
+    {{-- <div style="margin-top:20px; display:flex; justify-content:space-between;">
         <!-- Daily Chemical Usage -->
         <table class="section-table">
             <thead>
@@ -194,10 +265,10 @@
                     <td colspan="2">{{ $dailyUsage['rpo_usage'] ?? '-' }}</td>
                 </tr>
             </tbody>
-        </table>
+        </table> --}}
 
-        <!-- Theoretical Yield -->
-        <table class="section-table">
+    <!-- Theoretical Yield -->
+    {{-- <table class="section-table">
             <thead>
                 <tr>
                     <th colspan="2">Theoretical Yield</th>
@@ -221,24 +292,35 @@
                     <td>{{ $yield['loses'] ?? '-' }}</td>
                 </tr>
             </tbody>
-        </table>
-    </div>
+        </table> --}}
 
-    <!-- Signature -->
     <table class="signature-table">
         <tr>
             <td>
-                <p>Prepared by,</p>
-                <br><br><br>
-                <p><strong>{{ $prepared_by ?? 'QC Ass Supervisor' }}</strong></p>
+                Prepared by,<br><br><br>
+                <strong>({{ data_get($lastShift, 'prepared.name', '-') }})</strong><br>
+                @php $pdate = data_get($lastShift, 'prepared.date'); @endphp
+                {{ $pdate ? \Carbon\Carbon::parse($pdate)->format('d-m-Y H:i') : '-' }}
             </td>
             <td>
-                <p>Acknowledged by,</p>
-                <br><br><br>
-                <p><strong>{{ $acknowledged_by ?? 'QC Section Head' }}</strong></p>
+                Acknowledged by,<br><br><br>
+                <strong>({{ data_get($lastShift, 'acknowledge.name', '-') }})</strong><br>
+                @php $adate = data_get($lastShift, 'acknowledge.date'); @endphp
+                {{ $adate ? \Carbon\Carbon::parse($adate)->format('d-m-Y H:i') : '-' }}
             </td>
         </tr>
     </table>
+
+
+
+
+
+    <div style="margin-top:10px; text-align:center; font-size:9px; font-style:italic; color:#555;">
+        Dokumen ini telah disetujui secara elektronik melalui sistem [E-Logsheet],
+        sehingga tidak memerlukan tanda tangan basah.
+    </div>
+
+    </div>
 </body>
 
 </html>

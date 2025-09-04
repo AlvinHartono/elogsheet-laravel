@@ -45,7 +45,7 @@
             @endif
 
             <div class="mt-1">
-                Date: {{ \Carbon\Carbon::parse($selectedDate)->format('d-m-Y') }}
+                Date: {{ \Carbon\Carbon::parse($tanggal)->format('d-m-Y') }}
             </div>
         </div>
 

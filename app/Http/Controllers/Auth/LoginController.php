@@ -90,13 +90,10 @@ class LoginController extends Controller
 
     private function afterLoginSuccess(Request $request)
     {
-        // Ambil data business unit
-        $bu = MBusinessUnit::where('bu_code', $request->business_unit)->first();
+        // Business unit & plant (sudah ada)
+        $bu = \App\Models\MBusinessUnit::where('bu_code', $request->business_unit)->first();
+        $pl = \App\Models\MPlant::where('plant_code', $request->plant)->first();
 
-        // Ambil data plant
-        $pl = MPlant::where('plant_code', $request->plant)->first();
-
-        // Simpan ke session
         session()->put([
             'business_unit_code' => $bu->bu_code ?? '-',
             'business_unit_name' => $bu->bu_name ?? '-',
@@ -104,9 +101,28 @@ class LoginController extends Controller
             'plant_name'         => $pl->plant_name ?? '-',
         ]);
 
+        // === Ambil menu sesuai role ===
+        $menus = \App\Models\MMenu::whereHas('roleMenus', function ($q) {
+            $q->where('role_code', auth()->user()->roles);
+        })
+            ->where('isactive', 'T')
+            ->whereNull('parent_id')
+            ->with(['children' => function ($q) {
+                $q->where('isactive', 'T')
+                    ->whereHas('roleMenus', function ($r) {
+                        $r->where('role_code', auth()->user()->roles);
+                    });
+            }])
+            ->orderBy('sort_order')
+            ->get();
+
+
+        session()->put('menus', $menus);
+
         return redirect()->route('dashboard')
             ->with('success', 'Login berhasil! Selamat datang.');
     }
+
 
 
     public function logout(Request $request)
