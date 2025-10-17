@@ -5,8 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-use function PHPSTORM_META\map;
-
 class LSQualityReport extends Model
 {
     use HasFactory;
@@ -92,20 +90,20 @@ class LSQualityReport extends Model
         'rm_av' => 'decimal:3',
         'rm_m&i' => 'decimal:3',
         'rm_pv' => 'decimal:3',
-        'rm_color_r' => 'decimal:3',
+        'rm_color_r' => 'decimal:0',
         'rm_color_y' => 'decimal:3',
         'rm_color_b' => 'decimal:0',
 
         'fg_ffa' => 'decimal:3',
         'fg_iv' => 'decimal:2',
-        'fg_pv' => 'decimal:0',
-        'fg_m&i' => 'decimal:0',
+        'fg_pv' => 'decimal:3',
+        'fg_m&i' => 'decimal:3',
         'fg_color_r' => 'decimal:1',
         'fg_color_y' => 'decimal:1',
 
-        'bp_ffa' => 'decimal:2',
-        'bp_m&i' => 'decimal:0',
-        'w_sbe_qc' => 'decimal:2',
+        'bp_ffa' => 'decimal:3',
+        'bp_m&i' => 'decimal:3',
+        'w_sbe_qc' => 'decimal:3',
 
         'entry_date' => 'datetime',
         'prepared_date' => 'datetime',

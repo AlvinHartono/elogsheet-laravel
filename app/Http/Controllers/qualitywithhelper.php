@@ -57,46 +57,46 @@ class RptQualityController extends Controller
   public function exportLayoutPreview(Request $request)
   {
     $selectedDate = $request->input('filter_tanggal', Carbon::today()->toDateString());
-    $workCenter   = $request->input('filter_work_center');
+    $workCenter = $request->input('filter_work_center');
 
     [$data, $groupedData] = $this->getReportData($selectedDate, $workCenter);
     $signatures = $this->getShiftSignatures($selectedDate, $workCenter);
-    $formInfo   = $this->getFormInfo($selectedDate, $workCenter);
+    $formInfo = $this->getFormInfo($selectedDate, $workCenter);
     $refineryOilType = $this->getRefineryAndOilType($selectedDate, $workCenter);
 
     return view('rpt_quality.preview', [
-      'data'        => $data,
+      'data' => $data,
       'groupedData' => $groupedData,
       'selectedDate' => $selectedDate,
-      'signatures'  => $signatures,
+      'signatures' => $signatures,
       'formInfoFirst' => $formInfo['first'],
-      'formInfoLast'  => $formInfo['last'],
-      'refinery'    => $refineryOilType['refinery'],
-      'oilType'     => $refineryOilType['oilType'],
-      'workCenter'  => $workCenter,
+      'formInfoLast' => $formInfo['last'],
+      'refinery' => $refineryOilType['refinery'],
+      'oilType' => $refineryOilType['oilType'],
+      'workCenter' => $workCenter,
     ]);
   }
 
   public function exportPdf(Request $request)
   {
     $selectedDate = $request->input('filter_tanggal', Carbon::today()->toDateString());
-    $workCenter   = $request->input('filter_work_center');
+    $workCenter = $request->input('filter_work_center');
 
     [$data, $groupedData] = $this->getReportData($selectedDate, $workCenter);
     $signatures = $this->getShiftSignatures($selectedDate, $workCenter);
-    $formInfo   = $this->getFormInfo($selectedDate, $workCenter);
+    $formInfo = $this->getFormInfo($selectedDate, $workCenter);
     $refineryOilType = $this->getRefineryAndOilType($selectedDate, $workCenter);
 
     $pdf = Pdf::loadView('exports.report_quality_layout_pdf', [
-      'data'        => $data,
+      'data' => $data,
       'groupedData' => $groupedData,
       'selectedDate' => $selectedDate,
-      'workCenter'  => $workCenter,
+      'workCenter' => $workCenter,
       'formInfoFirst' => $formInfo['first'],
-      'formInfoLast'  => $formInfo['last'],
-      'refinery'    => $refineryOilType['refinery'],
-      'oilType'     => $refineryOilType['oilType'],
-      'signatures'  => $signatures,
+      'formInfoLast' => $formInfo['last'],
+      'refinery' => $refineryOilType['refinery'],
+      'oilType' => $refineryOilType['oilType'],
+      'signatures' => $signatures,
     ])->setPaper('a3', 'landscape');
 
     return $pdf->stream('quality_report_' . $selectedDate . '.pdf');
@@ -148,46 +148,46 @@ class RptQualityController extends Controller
   public function exportLayoutPreviewQc(Request $request)
   {
     $selectedDate = $request->input('filter_tanggal', Carbon::today()->toDateString());
-    $workCenter   = $request->input('filter_work_center');
+    $workCenter = $request->input('filter_work_center');
 
     [$data, $groupedData] = $this->getReportData($selectedDate, $workCenter);
     $signatures = $this->getShiftSignatures($selectedDate, $workCenter);
-    $formInfo   = $this->getFormInfo($selectedDate, $workCenter);
+    $formInfo = $this->getFormInfo($selectedDate, $workCenter);
     $refineryOilType = $this->getRefineryAndOilType($selectedDate, $workCenter);
 
     return view('rpt_quality.QC.preview', [
-      'data'        => $data,
+      'data' => $data,
       'groupedData' => $groupedData,
       'selectedDate' => $selectedDate,
-      'signatures'  => $signatures,
+      'signatures' => $signatures,
       'formInfoFirst' => $formInfo['first'],
-      'formInfoLast'  => $formInfo['last'],
-      'refinery'    => $refineryOilType['refinery'],
-      'oilType'     => $refineryOilType['oilType'],
-      'workCenter'  => $workCenter,
+      'formInfoLast' => $formInfo['last'],
+      'refinery' => $refineryOilType['refinery'],
+      'oilType' => $refineryOilType['oilType'],
+      'workCenter' => $workCenter,
     ]);
   }
 
   public function exportPdfQc(Request $request)
   {
     $selectedDate = $request->input('filter_tanggal', Carbon::today()->toDateString());
-    $workCenter   = $request->input('filter_work_center');
+    $workCenter = $request->input('filter_work_center');
 
     [$data, $groupedData] = $this->getReportData($selectedDate, $workCenter);
     $signatures = $this->getShiftSignatures($selectedDate, $workCenter);
-    $formInfo   = $this->getFormInfo($selectedDate, $workCenter);
+    $formInfo = $this->getFormInfo($selectedDate, $workCenter);
     $refineryOilType = $this->getRefineryAndOilType($selectedDate, $workCenter);
 
     $pdf = Pdf::loadView('exports.report_quality_layout_pdf_qc', [
-      'data'        => $data,
+      'data' => $data,
       'groupedData' => $groupedData,
       'selectedDate' => $selectedDate,
-      'workCenter'  => $workCenter,
+      'workCenter' => $workCenter,
       'formInfoFirst' => $formInfo['first'],
-      'formInfoLast'  => $formInfo['last'],
-      'refinery'    => $refineryOilType['refinery'],
-      'oilType'     => $refineryOilType['oilType'],
-      'signatures'  => $signatures,
+      'formInfoLast' => $formInfo['last'],
+      'refinery' => $refineryOilType['refinery'],
+      'oilType' => $refineryOilType['oilType'],
+      'signatures' => $signatures,
     ])->setPaper('a3', 'landscape');
 
     return $pdf->stream('quality_report_' . $selectedDate . '.pdf');

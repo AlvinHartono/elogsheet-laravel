@@ -323,43 +323,85 @@
                             <td class="px-4 py-2 border-b text-center">
                                 <div class="flex justify-center gap-2" x-data="{ showApprove: false, showReject: false }">
 
-                                    {{-- Approve --}}
-                                    <button @click="showApprove = true"
-                                        class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 shadow
-                                        {{ $report->checked_status === 'Approved' ? 'opacity-50 cursor-not-allowed' : '' }}"
-                                        {{ $report->checked_status === 'Approved' ? 'disabled' : '' }}>
-                                        Approve
-                                    </button>
+                                    {{-- Approve/Reject Leader --}}
+                                    @if (auth()->user()->roles === 'LEAD_QC' or auth()->user()->roles === 'LEAD')
+                                        {{-- Approve Prepared --}}
+                                        <button @click="showApprove = true"
+                                            class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 shadow
+                                            {{ !is_null($report->prepared_status) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                            {{ !is_null($report->prepared_status) ? 'disabled' : '' }}>
+                                            Approve
+                                        </button>
 
-                                    {{-- Reject --}}
-                                    <button @click="showReject = true"
-                                        class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow
-                                        {{ $report->checked_status === 'Rejected' ? 'opacity-50 cursor-not-allowed' : '' }}"
-                                        {{ $report->checked_status === 'Rejected' ? 'disabled' : '' }}>
-                                        Reject
-                                    </button>
+                                        {{-- Reject Prepared --}}
+                                        <button @click="showReject = true"
+                                            class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow
+                                            {{ !is_null($report->prepared_status) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                            {{ !is_null($report->prepared_status) ? 'disabled' : '' }}>
+                                            Reject
+                                        </button>
+                                    @endif
+
+                                    {{-- Approve/Reject Manager --}}
+                                    @if (auth()->user()->roles === 'MGR_QC' or auth()->user()->roles === 'MGR')
+                                        @php
+                                            $isDisabled =
+                                                !is_null($report->checked_status) || is_null($report->prepared_status);
+                                        @endphp
+                                        {{-- Approve Checked --}}
+                                        <button @click="showApprove = true"
+                                            class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 shadow
+                                            {{ !is_null($isDisabled) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                            {{ !is_null($isDisabled) ? 'disabled' : '' }}>
+                                            Approve
+                                        </button>
+
+                                        {{-- Reject Checked --}}
+                                        <button @click="showReject = true"
+                                            class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow
+                                            {{ !is_null($isDisabled) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                            {{ !is_null($isDisabled) ? 'disabled' : '' }}>
+                                            Reject
+                                        </button>
+                                    @endif
 
                                     {{-- Modal Approve --}}
                                     <div x-show="showApprove" x-transition
                                         class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50"
                                         style="display:none;">
                                         <div class="bg-white p-6 rounded shadow-lg max-w-sm w-full">
-                                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Approve</h2>
-                                            <p class="text-sm text-gray-600 mb-6">Apakah Anda yakin ingin <b>Approve</b>
-                                                tiket ini?</p>
+                                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Approve
+                                            </h2>
+                                            <p class="text-sm text-gray-600 mb-6">Apakah Anda yakin ingin
+                                                <b>Approve</b>
+                                                tiket ini?
+                                            </p>
                                             <div class="flex justify-end space-x-2">
                                                 <button @click="showApprove = false"
                                                     class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
                                                     Batal
                                                 </button>
-                                                <form method="POST"
-                                                    action="{{ route('report-quality.qc.approve', $report->id) }}">
-                                                    @csrf
-                                                    <button type="submit"
-                                                        class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
-                                                        Approve
-                                                    </button>
-                                                </form>
+                                                @if (auth()->user()->roles === 'LEAD_QC' or auth()->user()->roles === 'LEAD')
+                                                    <form method="POST"
+                                                        action="{{ route('report-quality.qc.approve', $report->id) }}">
+                                                        @csrf
+                                                        <button type="submit"
+                                                            class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                                                            Approve
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                                @if (auth()->user()->roles === 'MGR_QC' or auth()->user()->roles === 'MGR')
+                                                    <form method="POST"
+                                                        action="{{ route('report-quality.qc.approve', $report->id) }}">
+                                                        @csrf
+                                                        <button type="submit"
+                                                            class="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                                                            Approve
+                                                        </button>
+                                                    </form>
+                                                @endif
+
                                             </div>
                                         </div>
                                     </div>
@@ -370,35 +412,60 @@
                                         style="display:none;">
                                         <div class="bg-white p-6 rounded shadow-lg max-w-sm w-full">
                                             <h2 class="text-lg font-semibold text-gray-800 mb-4">Konfirmasi Reject</h2>
-                                            <p class="text-sm text-gray-600 mb-4">Silakan masukkan alasan reject tiket ini:
+                                            <p class="text-sm text-gray-600 mb-4">Silakan masukkan alasan reject tiket
+                                                ini:
                                             </p>
+                                            @if (auth()->user()->roles === 'LEAD' or auth()->user()->roles === 'LEAD_QC')
+                                                <form method="POST"
+                                                    action="{{ route('report-quality.qc.reject', $report->id) }}"
+                                                    class="space-y-4">
+                                                    @csrf
+                                                    {{-- Textarea alasan reject --}}
+                                                    <textarea name="remark" rows="3"
+                                                        class="w-full border rounded p-2 text-sm focus:ring-red-500 focus:border-red-500"
+                                                        placeholder="Tuliskan alasan reject..."></textarea>
 
-                                            <form method="POST"
-                                                action="{{ route('report-quality.qc.reject', $report->id) }}"
-                                                class="space-y-4">
-                                                @csrf
-                                                {{-- Textarea alasan reject --}}
-                                                <textarea name="remark" rows="3"
-                                                    class="w-full border rounded p-2 text-sm focus:ring-red-500 focus:border-red-500"
-                                                    placeholder="Tuliskan alasan reject..."></textarea>
+                                                    <div class="flex justify-end space-x-2">
+                                                        <button type="button" @click="showReject = false"
+                                                            class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                                                            Batal
+                                                        </button>
+                                                        <button type="submit"
+                                                            class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            @endif
+                                            @if (auth()->user()->roles === 'MGR' or auth()->user()->roles === 'MGR_QC')
+                                                <form method="POST"
+                                                    action="{{ route('report-quality.qc.reject', $report->id) }}"
+                                                    class="space-y-4">
+                                                    @csrf
+                                                    {{-- Textarea alasan reject --}}
+                                                    <textarea name="remark" rows="3"
+                                                        class="w-full border rounded p-2 text-sm focus:ring-red-500 focus:border-red-500"
+                                                        placeholder="Tuliskan alasan reject..."></textarea>
 
-                                                <div class="flex justify-end space-x-2">
-                                                    <button type="button" @click="showReject = false"
-                                                        class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
-                                                        Batal
-                                                    </button>
-                                                    <button type="submit"
-                                                        class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
-                                                        Reject
-                                                    </button>
-                                                </div>
-                                            </form>
+                                                    <div class="flex justify-end space-x-2">
+                                                        <button type="button" @click="showReject = false"
+                                                            class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+                                                            Batal
+                                                        </button>
+                                                        <button type="submit"
+                                                            class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            @endif
+
                                         </div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-4 py-2 border-b text-center">
-                                <a href="{{ route('report-quality.show', $report->id) }}"
+                                <a href="{{ route('report-quality.qc.show', $report->id) }}"
                                     class="text-blue-600 hover:text-blue-800 inline-flex items-center justify-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
                                         class="w-5 h-5 text-blue-600 hover:text-blue-800 transition-colors duration-200">
@@ -407,7 +474,6 @@
                                     </svg>
                                 </a>
                             </td>
-
                         </tr>
                     @empty
                         <tr>

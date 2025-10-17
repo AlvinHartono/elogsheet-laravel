@@ -45,7 +45,9 @@
 
         {{-- Section: Bleaching Oil --}}
         <x-section title="Bleach Oil">
-            <x-info label="Color (R)" :value="$report->bo_color" />
+            <x-info label="Color (R)" :value="$report->bo_color_r" />
+            <x-info label="Color (Y)" :value="$report->bo_color_y" />
+            <x-info label="Color (B)" :value="$report->bo_color_b" />
             <x-info label="BREAK TEST" :value="$report->bo_break_test" />
         </x-section>
 
@@ -55,8 +57,9 @@
             <x-info label="IV" :value="$report->fg_iv" />
             <x-info label="PV (%)" :value="$report->fg_pv" />
             <x-info label="M&I (%)" :value="$report->{'fg_m&i'}" />
-            <x-info label="Color R" :value="$report->fg_color_r" />
-            <x-info label="Color Y" :value="$report->fg_color_y" />
+            <x-info label="Color (R)" :value="$report->fg_color_r" />
+            <x-info label="Color (Y)" :value="$report->fg_color_y" />
+            <x-info label="Color (B)" :value="$report->fg_color_b" />
             <x-info label="To Tank" :value="$report->fg_tank_to" />
         </x-section>
 

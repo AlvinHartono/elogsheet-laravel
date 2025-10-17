@@ -88,10 +88,12 @@
 
     <div style="text-align:right; font-size:9px; position:absolute; top:20px; right:20px;">
         <p><strong>No. Form</strong>: {{ $formInfoFirst->form_no ?? '-' }}</p>
-        <p><strong>Rev</strong>: {{ $formInfoLast->revision_no ?? '-' }}</p>
-        <p><strong>Eff. Date</strong>:
+        <p><strong>Issue Date</strong>:
             {{ $formInfoFirst && $formInfoFirst->date_issued ? \Carbon\Carbon::parse($formInfoFirst->date_issued)->format('ymd') : '-' }}
         </p>
+        <p><strong>Rev. No.</strong>: {{ '0' ?? '-' }}</p>
+        <p><strong>Rev. Date.</strong>: {{ '-' }}</p>
+        {{-- <p><strong>Rev</strong>: {{ $formInfoLast->revision_no ?? '-' }}</p> --}}
     </div>
 
     <!-- Tabel utama -->
@@ -175,8 +177,8 @@
                         <td>{{ $row->bp_ffa }}</td>
                         <td>{{ $row->{'bp_m&i'} }}</td>
                         <td>{{ $row->bp_to_tank }}</td>
-                        <td>{{ $row->w_sbe_qc }}</td>
                         <td>{{ $row->{'w_sbe_m&i'} }}</td>
+                        <td>{{ $row->w_sbe_qc }}</td>
                         <td>{{ $row->remarks }}</td>
                     </tr>
                 @endforeach
@@ -220,8 +222,8 @@
                             <td>{{ $row->bp_ffa }}</td>
                             <td>{{ $row->{'bp_m&i'} }}</td>
                             <td>{{ $row->bp_to_tank }}</td>
-                            <td>{{ $row->w_sbe_qc }}</td>
                             <td>{{ $row->{'w_sbe_m&i'} }}</td>
+                            <td>{{ $row->w_sbe_qc }}</td>
                             <td>{{ $row->remarks }}</td>
                         </tr>
                     @endforeach

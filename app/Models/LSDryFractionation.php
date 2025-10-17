@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class LSDryFractination extends Model
+class LSDryFractionation extends Model
 {
     use HasFactory;
 
-    protected $table = 't_dry_fractination';
+    protected $table = 't_dry_fractionation';
     protected $primaryKey = 'id';
 
     // ID diisi manual dengan angka (running number)
@@ -25,6 +25,7 @@ class LSDryFractination extends Model
         'transaction_date',
         'posting_date',
         'work_center',
+        'shift',
         'oil_type',
         'crystalizier',
         'filling_start_time',
@@ -47,12 +48,19 @@ class LSDryFractination extends Model
         'stearin_slep_point_red',
         'olein_yield',
         'remarks',
+        'flag',
         'entry_by',
         'entry_date',
         'prepared_by',
         'prepared_date',
+        'prepared_status',
+        'prepared_status_remarks',
         'checked_by',
         'checked_date',
+        'checked_status',
+        'checked_status_remarks',
+        'updated_date',
+        'updated_status',
         'form_no',
         'date_issued',
         'revision_no',
@@ -62,26 +70,27 @@ class LSDryFractination extends Model
     // NOTE: kalau kolom waktu di DB bertipe TIME, sebaiknya hapus cast datetime berikut
     protected $casts = [
         'transaction_date' => 'datetime',
-        'posting_date'     => 'datetime',
-        'entry_date'       => 'datetime',
-        'prepared_date'    => 'datetime',
-        'checked_date'     => 'datetime',
-        'date_issued'      => 'date',
-        'revision_date'    => 'date',
+        'posting_date' => 'datetime',
+        'entry_date' => 'datetime',
+        'prepared_date' => 'datetime',
+        'checked_date' => 'datetime',
+        'updated_date' => 'datetime',
+        'date_issued' => 'date',
+        'revision_date' => 'date',
 
         // numeric
-        'initial_oil_level'      => 'decimal:2',
-        'feed_iv'                => 'decimal:2',
-        'agitator_speed'         => 'decimal:2',
-        'water_pump_press'       => 'decimal:2',
-        'filtration_oil_level'   => 'decimal:2',
-        'olein_iv_red'           => 'decimal:2',
-        'olein_cloud_point'      => 'decimal:2',
-        'stearin_iv'             => 'decimal:2',
+        'initial_oil_level' => 'decimal:2',
+        'feed_iv' => 'decimal:2',
+        'agitator_speed' => 'decimal:2',
+        'water_pump_press' => 'decimal:2',
+        'filtration_oil_level' => 'decimal:2',
+        'olein_iv_red' => 'decimal:2',
+        'olein_cloud_point' => 'decimal:2',
+        'stearin_iv' => 'decimal:2',
         'stearin_slep_point_red' => 'decimal:2',
-        'olein_yield'            => 'decimal:2',
+        'olein_yield' => 'decimal:2',
 
-        'filtration_cycle_no'    => 'integer',
-        'revision_no'            => 'integer',
+        'filtration_cycle_no' => 'integer',
+        'revision_no' => 'integer',
     ];
 }

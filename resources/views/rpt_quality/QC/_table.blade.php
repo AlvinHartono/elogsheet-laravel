@@ -82,7 +82,8 @@
 
                     {{-- RBDPO --}}
                     <td class="border px-1 py-1">{{ $row->fg_ffa }}</td>
-                    <td class="border px-1 py-1">{{ $row->fg_moist }}</td>
+                    {{-- ini --}}
+                    <td class="border px-1 py-1">{{ $row->fg_moisture }}</td>
                     <td class="border px-1 py-1">{{ $row->fg_impurities }}</td>
                     <td class="border px-1 py-1">{{ $row->fg_iv }}</td>
                     <td class="border px-1 py-1">{{ $row->fg_pv }}</td>

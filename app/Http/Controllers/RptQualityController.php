@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Exports\LSQualityExport;
 use App\Models\LSQualityReport;
+use App\Models\LSQualityReportQc;
+use App\Models\MRolesShiftPrepared;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Auth;
+use DB;
 
 class RptQualityController extends Controller
 {
@@ -23,9 +27,14 @@ class RptQualityController extends Controller
             ->withQueryString();
 
         $shiftStatuses = $this->getShiftStatuses($tanggal);
-        $workCenters   = LSQualityReport::select('work_center')->distinct()->get();
+        $workCenters = LSQualityReport::select('work_center')->distinct()->get();
 
-        return view('rpt_quality.index', compact('reports', 'shiftStatuses', 'tanggal', 'workCenters'));
+        $signatures = $this->getSignatures($tanggal, $request->input('work_center'));
+
+        // Panggil helper function
+        $approvalStatus = $this->getApprovalStatus($tanggal);
+
+        return view('rpt_quality.index', compact('reports', 'shiftStatuses', 'tanggal', 'workCenters', 'signatures') + $approvalStatus);
     }
 
     /**
@@ -35,17 +44,17 @@ class RptQualityController extends Controller
     {
         $tanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
 
-        $reports = $this->buildBaseQuery($request, $tanggal)
+        $reports = $this->buildBaseQueryQc($request, $tanggal)
             ->paginate(8)
             ->withQueryString();
 
         $shiftStatuses = $this->getShiftStatuses($tanggal);
-        $workCenters   = LSQualityReport::select('work_center')->distinct()->get();
+        $workCenters = LSQualityReportQc::select('work_center')->distinct()->get();
 
         $signaturesQc = $this->getSignaturesQc($tanggal, $request->input('work_center'));
 
         // Panggil helper function
-        $approvalStatus = $this->getApprovalStatus($tanggal);
+        $approvalStatus = $this->getApprovalStatusQc($tanggal);
 
         return view('rpt_quality.QC.index', compact(
             'reports',
@@ -65,12 +74,18 @@ class RptQualityController extends Controller
         return view('rpt_quality.show', compact('report'));
     }
 
+    public function showQc($id)
+    {
+        $report = LSQualityReportQc::findOrFail($id);
+        return view('rpt_quality.QC.show', compact('report'));
+    }
+
     /**
      * EXPORT Excel
      */
     public function exportExcel(Request $request)
     {
-        $tanggal  = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
+        $tanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
         $filename = 'logsheet_quality_report_' . Carbon::parse($tanggal)->format('Y_m_d') . '.xlsx';
 
         return Excel::download(new LSQualityExport($tanggal), $filename);
@@ -114,13 +129,55 @@ class RptQualityController extends Controller
     public function approveDate(Request $request)
     {
         $date = $request->posting_date;
+        $user = Auth::user();
+        $role = $user->roles;
 
-        LSQualityReport::whereDate('posting_date', $date)->update([
-            'checked_status'         => 'Approved',
-            'checked_status_remarks' => null,
-            'checked_date'           => now(),
-            'checked_by'             => auth()->user()->username ?? auth()->user()->name,
-        ]);
+        // Cek kondisi prepared_status
+        $reports = LSQualityReport::whereDate('posting_date', $date)
+            ->where('flag', 'T')
+            ->get();
+
+        if ($reports->isEmpty()) {
+            return back()->with('error', "Tidak ada data pada tanggal $date.");
+        }
+
+        // Kalau ada yang di-reject oleh shift leader
+        if ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
+            return back()->with('error', 'Data sudah direject oleh shift leader.');
+        }
+
+        if ($role === "LEAD_PROD" or $role === "LEAD") {
+            //  Ambil shift user
+            $assignedShifts = MRolesShiftPrepared::where('username', $user->username)
+                ->where('isactive', 'T')
+                ->pluck('shift_code');
+            $message = "Semua data tanggal $date berhasil di-prepare.";
+            if ($assignedShifts->isEmpty()) {
+                $statusMessage = "User tidak memiliki shift.";
+            } else {
+                // Ambil semua report berdasarkan shift user
+                LSQualityReport::whereDate('posting_date', $date)
+                    ->whereIn('shift', $assignedShifts)
+                    ->update([
+                        'prepared_status' => 'Approved',
+                        'prepared_status_remarks' => null,
+                        'prepared_date' => now(),
+                        'prepared_by' => auth()->user()->username ?? auth()->user()->name,
+                    ]);
+            }
+        } else if ($role === "MGR_PROD" or $role === "MGR") {
+            // Kalau ada salah satu yang belum di-prepare
+            if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+                return back()->with('error', 'Belum dilakukan prepared oleh shift leader.');
+            }
+
+            LSQualityReport::whereDate('posting_date', $date)->update([
+                'checked_status' => 'Approved',
+                'checked_status_remarks' => null,
+                'checked_date' => now(),
+                'checked_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
+        }
 
         return back()->with('success', "Semua data tanggal $date berhasil di-approve.");
     }
@@ -132,19 +189,51 @@ class RptQualityController extends Controller
     {
         $request->validate([
             'posting_date' => 'required|date',
-            'remark'       => 'nullable|string|max:255',
+            'remark' => 'nullable|string|max:255',
         ]);
 
         $date = $request->posting_date;
+        $user = Auth::user();
+        $role = $user->roles;
+        $message = '';
 
-        LSQualityReport::whereDate('posting_date', $date)->update([
-            'checked_status'         => 'Rejected',
-            'checked_status_remarks' => $request->remark,
-            'checked_date'           => now(),
-            'checked_by'             => auth()->user()->username ?? auth()->user()->name,
-        ]);
+        if ($role === 'LEAD_PROD' || $role === 'LEAD') {
+            // Get the current user's assigned shifts
+            $assignedShifts = MRolesShiftPrepared::where('username', $user->username)
+                ->where('isactive', 'T')
+                ->pluck('shift_code');
 
-        return back()->with('success', "Semua data tanggal $date berhasil direject dengan alasan: {$request->remark}");
+            if ($assignedShifts->isEmpty()) {
+                return back()->with('error', 'You have no active shifts assigned.');
+            }
+
+            // Update only the reports for the user's assigned shifts
+            LSQualityReport::whereDate('posting_date', $date)
+                ->whereIn('shift', $assignedShifts)
+                ->update([
+                    'prepared_status' => 'Rejected',
+                    'prepared_status_remarks' => $request->remark,
+                    'prepared_date' => now(),
+                    'prepared_by' => $user->username ?? $user->name,
+                ]);
+
+            $message = "All reports for your assigned shifts on {$date} have been rejected.";
+
+        } elseif ($role === 'MGR_PROD' || $role === 'MGR') {
+            // This logic for Managers remains the same
+            LSQualityReport::whereDate('posting_date', $date)
+                ->update([
+                    'checked_status' => 'Rejected',
+                    'checked_status_remarks' => $request->remark,
+                    'checked_date' => now(),
+                    'checked_by' => $user->username ?? $user->name,
+                ]);
+            $message = "All data on {$date} has been rejected (Checked).";
+        } else {
+            return back()->with('error', 'You do not have permission to perform this action.');
+        }
+
+        return back()->with('success', $message);
     }
 
     /**
@@ -153,17 +242,16 @@ class RptQualityController extends Controller
     public function approveDateQc(Request $request)
     {
         $date = $request->posting_date;
+        $user = Auth::user();
+        $role = $user->roles;
 
         // Cek kondisi prepared_status
-        $reports = LSQualityReport::whereDate('posting_date', $date)->get();
+        $reports = LSQualityReportQc::whereDate('posting_date', $date)
+            ->where('flag', 'T')
+            ->get();
 
         if ($reports->isEmpty()) {
             return back()->with('error', "Tidak ada data pada tanggal $date.");
-        }
-
-        // Kalau ada salah satu yang belum di-prepare
-        if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
-            return back()->with('error', 'Belum dilakukan prepared oleh shift leader.');
         }
 
         // Kalau ada yang di-reject oleh shift leader
@@ -171,19 +259,50 @@ class RptQualityController extends Controller
             return back()->with('error', 'Data sudah direject oleh shift leader.');
         }
 
-        // Hanya approve jika prepared_status = Approved
-        if ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
-            LSQualityReport::whereDate('posting_date', $date)->update([
-                'checked_status'         => 'Approved',
-                'checked_status_remarks' => null,
-                'checked_date'           => now(),
-                'checked_by'             => auth()->user()->username ?? auth()->user()->name,
-            ]);
+        if ($role === 'LEAD_QC' or $role === "LEAD") {
+            //  Ambil shift user
+            $assignedShifts = MRolesShiftPrepared::where('username', $user->username)
+                ->where('isactive', 'T')
+                ->pluck('shift_code');
 
-            return back()->with('success', "Semua data tanggal $date berhasil di-approve.");
+            if ($assignedShifts->isEmpty()) {
+                $statusMessage = "User tidak memiliki shift.";
+            } else {
+                LSQualityReportQc::whereDate('posting_date', $date)
+                    ->whereIn('shift', $assignedShifts)
+                    ->where('flag', 'T')
+                    ->update([
+                        'prepared_status' => 'Approved',
+                        'prepared_status_remarks' => null,
+                        'prepared_date' => now(),
+                        'prepared_by' => $user->username ?? $user->name,
+                    ]);
+                // $message = "Semua data QC tanggal $date berhasil di-prepare.";
+                $message = "Semua data QC tanggal $date berhasil di-prepare.";
+            }
+        } elseif ($role === 'MGR_QC' or $role === 'MGR') {
+            // Kalau ada salah satu yang belum di-prepare
+            if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+                return back()->with('error', 'Belum dilakukan prepared oleh shift leader.');
+            }
+
+            if ($reports->contains(fn($r) => is_null($r->prepared_status) || $r->prepared_status === 'Rejected')) {
+                return back()->with('error', 'Data QC belum di-prepare atau sudah di-reject oleh shift leader.');
+            }
+            LSQualityReportQc::whereDate('posting_date', $date)
+                ->where('flag', 'T')
+                ->update([
+                    'checked_status' => 'Approved',
+                    'checked_status_remarks' => null,
+                    'checked_date' => now(),
+                    'checked_by' => $user->username ?? $user->name,
+                ]);
+            $message = "Semua data QC tanggal $date berhasil di-approve.";
+        } else {
+            return back()->with('error', 'Anda tidak memiliki hak akses untuk melakukan tindakan ini.');
         }
 
-        return back()->with('error', 'Terdapat data yang tidak valid untuk di-approve.');
+        return back()->with('success', $message);
     }
 
     /**
@@ -193,36 +312,51 @@ class RptQualityController extends Controller
     {
         $request->validate([
             'posting_date' => 'required|date',
-            'remark'       => 'nullable|string|max:255',
+            'remark' => 'nullable|string|max:255',
         ]);
 
         $date = $request->posting_date;
-        $reports = LSQualityReport::whereDate('posting_date', $date)->get();
+        $user = Auth::user();
+        $role = $user->roles;
+        $reports = LSQualityReportQc::whereDate('posting_date', $date)->get();
 
-        if ($reports->isEmpty()) {
-            return back()->with('error', "Tidak ada data pada tanggal $date.");
+        if ($role === 'LEAD_QC' || $role === 'LEAD') {
+            // Get the current user's assigned shifts
+            $assignedShifts = MRolesShiftPrepared::where('username', $user->username)
+                ->where('isactive', 'T')
+                ->pluck('shift_code');
+
+            if ($assignedShifts->isEmpty()) {
+                return back()->with('error', 'You have no active shifts assigned.');
+            }
+
+            // Update only the reports for the user's assigned shifts
+            LSQualityReportQc::whereDate('posting_date', $date)
+                ->whereIn('shift', $assignedShifts)
+                ->update([
+                    'prepared_status' => 'Rejected',
+                    'prepared_status_remarks' => $request->remark,
+                    'prepared_date' => now(),
+                    'prepared_by' => $user->username ?? $user->name,
+                ]);
+
+            $message = "All reports for your assigned shifts on {$date} have been rejected.";
+
+        } elseif ($role === 'MGR_QC' || $role === 'MGR') {
+            // This logic for Managers remains the same
+            LSQualityReportQc::whereDate('posting_date', $date)
+                ->update([
+                    'checked_status' => 'Rejected',
+                    'checked_status_remarks' => $request->remark,
+                    'checked_date' => now(),
+                    'checked_by' => $user->username ?? $user->name,
+                ]);
+            $message = "All data on {$date} has been rejected (Checked).";
+        } else {
+            return back()->with('error', 'You do not have permission to perform this action.');
         }
 
-        if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
-            return back()->with('error', 'Belum dilakukan prepared oleh shift leader.');
-        }
-
-        if ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
-            return back()->with('error', 'Data sudah direject oleh shift leader, tidak bisa direject ulang.');
-        }
-
-        if ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
-            LSQualityReport::whereDate('posting_date', $date)->update([
-                'checked_status'         => 'Rejected',
-                'checked_status_remarks' => $request->remark,
-                'checked_date'           => now(),
-                'checked_by'             => auth()->user()->username ?? auth()->user()->name,
-            ]);
-
-            return back()->with('success', "Semua data tanggal $date berhasil direject dengan alasan: {$request->remark}");
-        }
-
-        return back()->with('error', 'Terdapat data yang tidak valid untuk direject.');
+        return back()->with('success', $message);
     }
 
 
@@ -232,15 +366,28 @@ class RptQualityController extends Controller
     public function approveTicket($id)
     {
         $report = LSQualityReport::findOrFail($id);
+        $userRole = Auth::user()->roles;
 
-        $report->update([
-            'approved_status'         => 'Approved',
-            'approved_status_remarks' => null,
-            'approved_date'           => now(),
-            'approved_by'             => auth()->user()->username ?? auth()->user()->name,
-        ]);
 
-        return back()->with('success', "Tiket {$report->id} berhasil di-approve (Produksi).");
+        if ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+            $report->update([
+                'prepared_status' => 'Approved',
+                'prepared_status_remarks' => null,
+                'prepared_date' => now(),
+                'prepared_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-approve (QC).");
+        } elseif ($userRole === "MGR" or $userRole === "MGR_PROD") {
+            $report->update([
+                'checked_status' => 'Approved',
+                'checked_status_remarks' => null,
+                'checked_date' => now(),
+                'checked_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-approve (QC).");
+        }
     }
 
     /**
@@ -253,13 +400,29 @@ class RptQualityController extends Controller
         ]);
 
         $report = LSQualityReport::findOrFail($id);
+        $userRole = Auth::user()->roles;
 
-        $report->update([
-            'approved_status'         => 'Rejected',
-            'approved_status_remarks' => $request->remark,
-            'approved_date'           => now(),
-            'approved_by'             => auth()->user()->username ?? auth()->user()->name,
-        ]);
+
+        if ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+            $report->update([
+                'prepared_status' => 'Rejected',
+                'prepared_status_remarks' => $request->remark,
+                'prepared_date' => now(),
+                'prepared_by' => auth()->user()->username ?? auth()->user()->name,
+
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-reject (QC).");
+        } elseif ($userRole === "MGR" or $userRole === "MGR_PROD") {
+            $report->update([
+                'checked_status' => 'Rejected',
+                'checked_status_remarks' => $request->remark,
+                'checked_date' => now(),
+                'checked_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-reject (QC).");
+        }
 
         return back()->with('success', "Tiket {$report->id} berhasil direject (Produksi).");
     }
@@ -269,16 +432,28 @@ class RptQualityController extends Controller
      */
     public function approveTicketQc($id)
     {
-        $report = LSQualityReport::findOrFail($id);
+        $report = LSQualityReportQc::findOrFail($id);
+        $userRole = Auth::user()->roles;
 
-        $report->update([
-            'prepared_status'         => 'Approved',
-            'prepared_status_remarks' => null,
-            'prepared_date'           => now(),
-            'prepared_by'             => auth()->user()->username ?? auth()->user()->name,
-        ]);
+        if ($userRole === "LEAD" or $userRole === "LEAD_QC") {
+            $report->update([
+                'prepared_status' => 'Approved',
+                'prepared_status_remarks' => null,
+                'prepared_date' => now(),
+                'prepared_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
 
-        return back()->with('success', "Tiket {$report->id} berhasil di-approve (QC).");
+            return back()->with('success', "Tiket {$report->id} berhasil di-approve (QC).");
+        } elseif ($userRole === "MGR" or $userRole === "MGR_QC") {
+            $report->update([
+                'checked_status' => 'Approved',
+                'checked_status_remarks' => null,
+                'checked_date' => now(),
+                'checked_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-approve (QC).");
+        }
     }
 
     /**
@@ -290,14 +465,29 @@ class RptQualityController extends Controller
             'remark' => 'nullable|string|max:255',
         ]);
 
-        $report = LSQualityReport::findOrFail($id);
+        $report = LSQualityReportQc::findOrFail($id);
+        $userRole = Auth::user()->roles;
 
-        $report->update([
-            'prepared_status'         => 'Rejected',
-            'prepared_status_remarks' => $request->remark,
-            'prepared_date'           => now(),
-            'prepared_by'             => auth()->user()->username ?? auth()->user()->name,
-        ]);
+        if ($userRole === "LEAD" or $userRole === "LEAD_QC") {
+            $report->update([
+                'prepared_status' => 'Rejected',
+                'prepared_status_remarks' => $request->remark,
+                'prepared_date' => now(),
+                'prepared_by' => auth()->user()->username ?? auth()->user()->name,
+
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-reject (QC).");
+        } elseif ($userRole === "MGR" or $userRole === "MGR_QC") {
+            $report->update([
+                'checked_status' => 'Rejected',
+                'checked_status_remarks' => $request->remark,
+                'checked_date' => now(),
+                'checked_by' => auth()->user()->username ?? auth()->user()->name,
+            ]);
+
+            return back()->with('success', "Tiket {$report->id} berhasil di-reject (QC).");
+        }
 
         return back()->with('success', "Tiket {$report->id} berhasil direject (QC).");
     }
@@ -308,6 +498,8 @@ class RptQualityController extends Controller
 
     private function buildBaseQuery(Request $request, string $tanggal)
     {
+        $user = Auth::user();
+        $userRole = $user->roles;
         $query = LSQualityReport::query()->whereDate('posting_date', $tanggal);
 
         if ($request->filled('filter_jam')) {
@@ -318,6 +510,50 @@ class RptQualityController extends Controller
             $query->where('work_center', $request->filter_work_center);
         }
 
+        // Tambahkan baris ini untuk filter flag
+        $query->where('t_quality_report_refinery.flag', 'T');
+
+        // If the user is a Lead, join their assigned shifts
+        if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
+            $query->join('m_roles_shift_prepared', 't_quality_report_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
+                ->where('m_roles_shift_prepared.username', $user->username)
+                ->where('m_roles_shift_prepared.isactive', 'T') // Or 'T', 'Y', etc.
+                ->select('t_quality_report_refinery.*'); // Important to prevent column conflicts
+        }
+        // Tidak ada filter tambahan untuk manager.
+        return $query->reorder()
+            ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
+            ->orderBy('shift', 'asc')
+            ->orderBy('time', 'asc');
+    }
+
+    private function buildBaseQueryQc(Request $request, string $tanggal)
+    {
+
+        $query = LSQualityReportQc::query()->whereDate('posting_date', $tanggal);
+
+        if ($request->filled('filter_jam')) {
+            $query->where('time', $request->filter_jam);
+        }
+
+        if ($request->filled('filter_work_center')) {
+            $query->where('work_center', $request->filter_work_center);
+        }
+
+        $user = Auth::user();
+        $userRole = $user->roles;
+
+        // Tambahkan baris ini untuk filter flag
+        $query->where('t_quality_report_qc.flag', 'T');
+
+        if ($userRole === "LEAD" || $userRole === "LEAD_QC") {
+            $query->join('m_roles_shift_prepared', 't_quality_report_qc.shift', '=', 'm_roles_shift_prepared.shift_code')
+                ->where('m_roles_shift_prepared.username', $user->username)
+                ->where('m_roles_shift_prepared.isactive', 'T') // Or 'T', 'Y', etc.
+                ->select('t_quality_report_qc.*');
+        }
+        // Tidak ada filter tambahan untuk manager.
+        // dd($query->toSql(), $query->getBindings(), Auth::user()->toArray());
         return $query->reorder()
             ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
             ->orderBy('shift', 'asc')
@@ -335,91 +571,111 @@ class RptQualityController extends Controller
 
     private function renderPreview(Request $request, string $view)
     {
-        $tanggal    = $request->input('filter_tanggal', now()->toDateString());
+        $tanggal = $request->input('filter_tanggal', now()->toDateString());
         $workCenter = $request->input('filter_work_center');
 
-        $data        = $this->getMainData($tanggal, $workCenter);
+        // Memanggil set fungsi yang sesuai berdasarkan view
+        if (str_contains($view, 'QC')) {
+            $data = $this->getMainDataQc($tanggal, $workCenter);
+            [$formInfoFirst, $formInfoLast] = $this->getFormInfoQc($tanggal, $workCenter);
+            $refinery = $this->getRefineryQc($tanggal, $workCenter);
+            $oilType = $this->getOilTypeQc($tanggal, $workCenter);
+        } else {
+            $data = $this->getMainData($tanggal, $workCenter);
+            [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
+            $refinery = $this->getRefinery($tanggal, $workCenter);
+            $oilType = $this->getOilType($tanggal, $workCenter);
+        }
+
         $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect();
-        $signatures  = $this->getSignatures($tanggal, $workCenter);
+        $signatures = $this->getSignatures($tanggal, $workCenter);
         $signaturesQc = $this->getSignaturesQc($tanggal, $workCenter);
-        $sign        = $data->first();
+        $sign = $data->first();
 
-        [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
-        $refinery = $this->getRefinery($tanggal, $workCenter);
-        $oilType  = $this->getOilType($tanggal, $workCenter);
-
-        return view($view, compact(
-            'data',
-            'groupedData',
-            'tanggal',
-            'workCenter',
-            'signatures',
-            'signaturesQc',
-            'sign',
-            'formInfoFirst',
-            'formInfoLast',
-            'refinery',
-            'oilType'
-        ));
+        return view($view, compact('data', 'groupedData', 'tanggal', 'workCenter', 'signatures', 'signaturesQc', 'sign', 'formInfoFirst', 'formInfoLast', 'refinery', 'oilType'));
     }
 
     private function renderPdf(Request $request, string $view)
     {
-        $tanggal    = $request->input('filter_tanggal', now()->toDateString());
+        $tanggal = $request->input('filter_tanggal', now()->toDateString());
         $workCenter = $request->input('filter_work_center');
 
-        $data        = $this->getMainData($tanggal, $workCenter);
+        // Memanggil set fungsi yang sesuai berdasarkan view
+        if (str_contains($view, 'qc')) {
+            $data = $this->getMainDataQc($tanggal, $workCenter);
+            [$formInfoFirst, $formInfoLast] = $this->getFormInfoQc($tanggal, $workCenter);
+            $refinery = $this->getRefineryQc($tanggal, $workCenter);
+            $oilType = $this->getOilTypeQc($tanggal, $workCenter);
+        } else {
+            $data = $this->getMainData($tanggal, $workCenter);
+            [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
+            $refinery = $this->getRefinery($tanggal, $workCenter);
+            $oilType = $this->getOilType($tanggal, $workCenter);
+        }
+
         $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect();
-
-        // Versi produksi (tetap dikirim kalau view produksi perlu)
-        $signatures   = $this->getSignatures($tanggal, $workCenter);
-        // Versi QC (punya prepared & acknowledge)
+        $signatures = $this->getSignatures($tanggal, $workCenter);
         $signaturesQc = $this->getSignaturesQc($tanggal, $workCenter);
+        $lastShift = collect($signaturesQc)->filter(fn($s) => data_get($s, 'prepared') || data_get($s, 'acknowledge'))->last();
 
-        // Ambil shift terakhir yang punya prepared/acknowledge untuk opsi 2
-        $lastShift = collect($signaturesQc)
-            ->filter(fn($s) => data_get($s, 'prepared') || data_get($s, 'acknowledge'))
-            ->last();
-
-        [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
-        $refinery = $this->getRefinery($tanggal, $workCenter);
-        $oilType  = $this->getOilType($tanggal, $workCenter);
-
-        $pdf = Pdf::loadView($view, compact(
-            'data',
-            'groupedData',
-            'tanggal',
-            'workCenter',
-            'formInfoFirst',
-            'formInfoLast',
-            'refinery',
-            'oilType',
-            'signatures',     // prod
-            'signaturesQc',   // qc
-            'lastShift'       // qc opsi 2
-        ))->setPaper('a3', 'landscape');
-
+        $pdf = Pdf::loadView($view, compact('data', 'groupedData', 'tanggal', 'workCenter', 'formInfoFirst', 'formInfoLast', 'refinery', 'oilType', 'signatures', 'signaturesQc', 'lastShift'))->setPaper('a3', 'landscape');
         return $pdf->stream("quality_report_{$tanggal}.pdf");
     }
 
 
     private function getMainData(string $tanggal, ?string $workCenter)
     {
+        $user = Auth::user();
+        $userRole = $user->roles;
+
         $query = LSQualityReport::whereDate('posting_date', $tanggal);
 
         if ($workCenter) {
             $query->where('work_center', $workCenter);
         }
 
-        return $query->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
-            ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
-            ->orderByRaw("CASE
+        $query->where('t_quality_report_refinery.flag', 'T');
+
+        if ($userRole === "MGR" or $userRole === "MGR_PROD") {
+            return $query->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
+                ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
+                ->orderByRaw("CASE
+                    WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
+                    WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
+                    WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
+                    ELSE 4 END")
+                ->orderBy('time')
+                ->get();
+        } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+            return $query
+                ->join('m_roles_shift_prepared', 't_quality_report_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
+                ->where('m_roles_shift_prepared.username', $user->username)
+                ->where('m_roles_shift_prepared.isactive', 'T')
+                ->select('t_quality_report_refinery.*')
+                ->orderbyRaw(
+                    "CASE
                 WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
                 WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
                 WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
-                ELSE 4 END")
-            ->orderBy('time')
-            ->get();
+                ELSE 4 END"
+                )
+                ->orderby('time')
+                ->get();
+        }
+        return collect();
+    }
+
+    private function getMainDataQc(string $tanggal, ?string $workCenter)
+    {
+        $query = LSQualityReportQc::whereDate('posting_date', $tanggal);
+        if ($workCenter) {
+            $query->where('work_center', $workCenter);
+        }
+        $query->where('t_quality_report_qc.flag', 'T');
+        return $query->join('m_mastervalue', 't_quality_report_qc.work_center', '=', 'm_mastervalue.code')
+            ->select('t_quality_report_qc.*', 'm_mastervalue.name as refinery_name')
+            ->orderByRaw("CASE WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1 WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2 WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3 ELSE 4 END")
+            ->orderBy('time')->get();
     }
 
     private function getSignatures(string $tanggal, ?string $workCenter): array
@@ -447,7 +703,7 @@ class RptQualityController extends Controller
     private function getSignaturesQc(string $tanggal, ?string $workCenter): array
     {
         $get = function ($start, $end) use ($tanggal, $workCenter) {
-            $q = LSQualityReport::whereDate('posting_date', $tanggal)
+            $q = LSQualityReportQc::whereDate('posting_date', $tanggal)
                 ->whereBetween('time', [$start, $end]);
 
             if ($workCenter) {
@@ -455,10 +711,10 @@ class RptQualityController extends Controller
             }
 
             $prepared = (clone $q)->orderByDesc('time')->first(['prepared_by', 'prepared_date']);
-            $ack      = (clone $q)->orderByDesc('time')->first(['checked_by', 'checked_date']);
+            $ack = (clone $q)->orderByDesc('time')->first(['checked_by', 'checked_date']);
 
             return [
-                'prepared'    => $prepared ? ['name' => $prepared->prepared_by, 'date' => $prepared->prepared_date] : null,
+                'prepared' => $prepared ? ['name' => $prepared->prepared_by, 'date' => $prepared->prepared_date] : null,
                 'acknowledge' => $ack ? ['name' => $ack->checked_by, 'date' => $ack->checked_date] : null,
             ];
         };
@@ -471,11 +727,12 @@ class RptQualityController extends Controller
     }
 
 
+
     private function getFormInfo(string $tanggal, ?string $workCenter): array
     {
         $base = LSQualityReport::whereDate('posting_date', $tanggal);
         $firstQuery = clone $base;
-        $lastQuery  = clone $base;
+        $lastQuery = clone $base;
 
         if ($workCenter) {
             $firstQuery->where('work_center', $workCenter);
@@ -483,8 +740,19 @@ class RptQualityController extends Controller
         }
 
         $first = $firstQuery->orderBy('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
-        $last  = $lastQuery->orderByDesc('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
+        $last = $lastQuery->orderByDesc('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
 
+        return [$first, $last];
+    }
+
+    private function getFormInfoQc(string $tanggal, ?string $workCenter): array
+    {
+        $base = LSQualityReportQc::whereDate('posting_date', $tanggal);
+        if ($workCenter) {
+            $base->where('work_center', $workCenter);
+        }
+        $first = (clone $base)->orderBy('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
+        $last = (clone $base)->orderByDesc('revision_date')->first(['form_no', 'date_issued', 'revision_no', 'revision_date']);
         return [$first, $last];
     }
 
@@ -501,6 +769,15 @@ class RptQualityController extends Controller
         return $q->first();
     }
 
+    private function getRefineryQc(string $tanggal, ?string $workCenter)
+    {
+        $q = LSQualityReportQc::whereDate('posting_date', $tanggal)->join('m_mastervalue', 't_quality_report_qc.work_center', '=', 'm_mastervalue.code')->select('t_quality_report_qc.work_center', 'm_mastervalue.name');
+        if ($workCenter) {
+            $q->where('t_quality_report_qc.work_center', $workCenter);
+        }
+        return $q->first();
+    }
+
     private function getOilType(string $tanggal, ?string $workCenter)
     {
         $q = LSQualityReport::whereDate('posting_date', $tanggal)->select('oil_type');
@@ -509,6 +786,15 @@ class RptQualityController extends Controller
             $q->where('work_center', $workCenter);
         }
 
+        return $q->first();
+    }
+
+    private function getOilTypeQc(string $tanggal, ?string $workCenter)
+    {
+        $q = LSQualityReportQc::whereDate('posting_date', $tanggal)->select('oil_type');
+        if ($workCenter) {
+            $q->where('work_center', $workCenter);
+        }
         return $q->first();
     }
 
@@ -528,31 +814,170 @@ class RptQualityController extends Controller
         return $pending ? 'Belum Selesai' : 'Approved Semua';
     }
 
+    private function checkShiftStatusQc(string $tanggal, string $start, string $end): string
+    {
+        $q = LSQualityReportQc::whereDate('posting_date', $tanggal)->whereBetween('time', [$start, $end]);
+        if (!$q->exists()) {
+            return 'Belum Ada Transaksi';
+        }
+        $pending = (clone $q)->where(function ($sub) {
+            $sub->whereNull('checked_status')->orWhere('checked_status', '!=', 'Approved');
+        })->exists();
+        return $pending ? 'Belum Selesai' : 'Approved Semua';
+    }
+
     /**
      * Cek apakah tombol approve/reject bisa aktif untuk tanggal tertentu
      */
     private function getApprovalStatus(string $tanggal): array
     {
-        $reports = LSQualityReport::whereDate('posting_date', $tanggal)->get();
+        $reports = LSQualityReport::whereDate('posting_date', $tanggal)
+            ->where('flag', 'T')
+            ->get();
 
         $statusMessage = null;
         $canApproveReject = false;
+        $user = Auth::user();
+        $userRole = $user->roles;
 
         if ($reports->isEmpty()) {
             $statusMessage = "Tidak ada data pada tanggal $tanggal.";
-        } elseif ($reports->contains(fn($r) => is_null($r->prepared_status))) {
-            $statusMessage = 'Belum dilakukan prepared oleh shift leader.';
-        } elseif ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
-            $statusMessage = 'Data sudah direject oleh shift leader.';
-        } elseif ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
-            $canApproveReject = true;
         } else {
-            $statusMessage = 'Terdapat data yang tidak valid untuk diproses.';
+            if ($userRole === "LEAD_PROD" or $userRole === "LEAD") {
+                //  Ambil shift
+                $assignedShifts = MRolesShiftPrepared::where('username', $user->username)
+                    ->where('isactive', 'T')
+                    ->pluck('shift_code');
+                if ($assignedShifts->isEmpty()) {
+                    $statusMessage = "User tidak memiliki shift.";
+                } else {
+                    // Ambil semua report berdasarkan shift user
+                    $reportsForUserShifts = LSQualityReport::whereDate('posting_date', $tanggal)
+                        ->whereIn('shift', $assignedShifts)
+                        ->get();
+
+                    $reportedShifts = $reportsForUserShifts->pluck('shift')->unique();
+
+                    $allShiftsReported = $assignedShifts->diff($reportedShifts)->isEmpty();
+
+                    if ($reportsForUserShifts->isEmpty()) {
+                        $statusMessage = "No reports submitted for your assigned shifts yet.";
+                        $canApproveReject = false;
+                    } elseif (!$allShiftsReported) {
+                        $missingShifts = $assignedShifts->diff($reportedShifts)->implode(', ');
+                        $statusMessage = "Waiting for reports from shift(s): {$missingShifts}.";
+                        $canApproveReject = false;
+                    } elseif ($reportsForUserShifts->contains(fn($r) => !is_null($r->prepared_status))) {
+                        $statusMessage = 'You have already prepared the reports for this date.';
+                        $canApproveReject = false;
+                    } else {
+                        $canApproveReject = true; // All conditions met!
+                    }
+                }
+
+            } elseif ($userRole === "MGR_PROD" or $userRole === "MGR") {
+                if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+                    $statusMessage = 'Belum dilakukan prepared oleh shift leader.';
+                    $canApproveReject = false;
+                } elseif ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
+                    $statusMessage = 'Data sudah direject oleh shift leader.';
+                    $canApproveReject = false;
+                } elseif ($reports->every(fn($r) => !is_null($r->checked_status))) {
+                    $statusMessage = 'Semua data sudah di-review oleh Anda.';
+                    $canApproveReject = false;
+                } elseif ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
+                    $canApproveReject = true;
+                } else {
+                    $statusMessage = 'Terdapat data yang tidak valid untuk diproses.';
+                    $canApproveReject = false;
+                }
+            }
         }
 
         return [
             'canApproveReject' => $canApproveReject,
-            'statusMessage'    => $statusMessage,
+            'statusMessage' => $statusMessage,
+        ];
+    }
+    /**
+     * (Qc) Cek apakah tombol approve/reject bisa aktif untuk tanggal tertentu
+     */
+    private function getApprovalStatusQc(string $tanggal): array
+    {
+        $reports = LSQualityReportQc::whereDate('posting_date', $tanggal)
+            ->where('flag', 'T')
+            ->get();
+
+        $statusMessage = null;
+        $canApproveReject = false;
+        $user = Auth::user();
+        $userRole = $user->roles;
+
+        if ($reports->isEmpty()) {
+            $statusMessage = "Tidak ada data pada tanggal $tanggal.";
+        } else {
+            if ($userRole === "LEAD_QC" or $userRole === "LEAD") {
+                $assignedShifts = MRolesShiftPrepared::where('username', $user->username)
+                    ->where('isactive', 'T')
+                    ->pluck('shift_code');
+                if ($assignedShifts->isEmpty()) {
+                    $statusMessage = "User tidak memiliki shift.";
+                } else {
+                    // Ambil semua report berdasarkan shift user
+                    $reportsForUserShifts = LSQualityReportQc::whereDate('posting_date', $tanggal)
+                        ->whereIn('shift', $assignedShifts)
+                        ->get();
+                    $reportedShifts = $reportsForUserShifts->pluck('shift')->unique();
+
+                    $allShiftsReported = $assignedShifts->diff($reportedShifts)->isEmpty();
+
+                    if ($reportsForUserShifts->isEmpty()) {
+                        $statusMessage = "No reports submitted for your assigned shifts yet.";
+                        $canApproveReject = false;
+                    } elseif (!$allShiftsReported) {
+                        $missingShifts = $assignedShifts->diff($reportedShifts)->implode(', ');
+                        $statusMessage = "Waiting for reports from shift(s): {$missingShifts}.";
+                        $canApproveReject = false;
+                    } elseif ($reportsForUserShifts->contains(fn($r) => !is_null($r->prepared_status))) {
+                        $statusMessage = 'You have already prepared the reports for this date.';
+                        $canApproveReject = false;
+                    } else {
+                        $canApproveReject = true; // All conditions met!
+                    }
+
+                    // if ($reports->contains(fn($r) => !is_null($r->prepared_status))) {
+                    //     $statusMessage = 'Semua data sudah di-prepare Approve/Reject oleh Shift Leader.';
+                    //     $canApproveReject = false;
+                    // } elseif ($reports->every(fn($r) => $r->prepared_status === 'Rejected') or $reports->every(fn($r) => $r->prepared_status === 'Approved')) {
+                    //     $canApproveReject = false;
+                    // } else {
+                    //     $canApproveReject = true;
+                    // }
+                }
+            } elseif ($userRole === "MGR_QC" or $userRole === "MGR") {
+                if ($reports->contains(fn($r) => is_null($r->prepared_status))) {
+                    $statusMessage = 'Belum dilakukan prepared oleh shift leader.';
+                    $canApproveReject = false;
+                } elseif ($reports->contains(fn($r) => $r->prepared_status === 'Rejected')) {
+                    $statusMessage = 'Data sudah direject oleh shift leader.';
+                    $canApproveReject = false;
+                } elseif ($reports->every(fn($r) => !is_null($r->checked_status))) {
+                    // This is the NEW and most important check.
+                    // If every report has a checked_status, the manager's work is done.
+                    $statusMessage = 'Semua data sudah di-review oleh Anda.';
+                    $canApproveReject = false;
+                } elseif ($reports->every(fn($r) => $r->prepared_status === 'Approved')) {
+                    $canApproveReject = true;
+                } else {
+                    $statusMessage = 'Terdapat data yang tidak valid untuk diproses.';
+                    $canApproveReject = false;
+                }
+            }
+        }
+
+        return [
+            'canApproveReject' => $canApproveReject,
+            'statusMessage' => $statusMessage,
         ];
     }
 }

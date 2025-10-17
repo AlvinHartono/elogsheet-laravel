@@ -285,13 +285,23 @@
                         (Belum disetujui)
                     @endif
                 </td>
+                <td>
+                    Checked By<br>
+                    @if ($signatures['shift3'])
+                        {{ $signatures['shift3']['name'] }}<br>
+                        {{ \Carbon\Carbon::parse($signatures['shift3']['date'])->format('d-m-Y H:i') }}
+                    @else
+                        (Belum disetujui)
+                    @endif
+                </td>
+
             </tr>
         </table>
     </div>
 
 
     <div class="note">
-        Dokumen ini telah disetujui secara elektronik melalui sistem [E-Form],<br>
+        Dokumen ini telah disetujui secara elektronik melalui sistem [E-Logsheet],
         sehingga tidak memerlukan tanda tangan asli.
     </div>
 </body>

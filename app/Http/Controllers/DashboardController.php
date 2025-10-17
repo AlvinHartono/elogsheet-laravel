@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LSQualityReportQc;
 use Illuminate\Http\Request;
 use App\Models\LSQualityReport;
 use App\Models\LSLampGlassHeader;
 use App\Models\MBusinessUnit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
@@ -30,8 +32,9 @@ class DashboardController extends Controller
         $issuesCount = $rejectedQ + $rejectedL;
         $percentApproved = $totalReports > 0 ? round(($approvedReports / $totalReports) * 100) : 0;
 
-        // ===== Recent Activity (5 terakhir gabungan LSQualityReport & LampGlass) =====
-        $recentReportsQ = LSQualityReport::select(
+        $user = Auth::user();
+
+        $recentReportsQ = LSQualityReportQc::select(
             'id',
             'checked_date',
             'checked_by',
@@ -39,6 +42,49 @@ class DashboardController extends Controller
             'checked_status_remarks',
             DB::raw("'QualityReport' as source")
         )->whereNotNull('checked_date');
+
+        if ($user->roles === "MGR_QC") {
+            // ===== Recent Activity (5 terakhir gabungan LSQualityReport & LampGlass) =====
+            $recentReportsQ = LSQualityReportQc::select(
+                'id',
+                'checked_date',
+                'checked_by',
+                'checked_status',
+                'checked_status_remarks',
+                DB::raw("'QualityReport' as source")
+            )->whereNotNull('checked_date');
+        } elseif ($user->roles === "MGR_PROD") {
+            // ===== Recent Activity (5 terakhir gabungan LSQualityReport & LampGlass) =====
+            $recentReportsQ = LSQualityReport::select(
+                'id',
+                'checked_date',
+                'checked_by',
+                'checked_status',
+                'checked_status_remarks',
+                DB::raw("'QualityReport' as source")
+            )->whereNotNull('checked_date');
+        } else {
+
+            $recentReportsQc = LSQualityReportQc::select(
+                'id',
+                'checked_date',
+                'checked_by',
+                'checked_status',
+                'checked_status_remarks',
+                DB::raw("'QualityReport' as source")
+            )->whereNotNull('checked_date');
+
+            $recentReportsProd = LSQualityReport::select(
+                'id',
+                'checked_date',
+                'checked_by',
+                'checked_status',
+                'checked_status_remarks',
+                DB::raw("'QualityReport' as source")
+            )->whereNotNull('checked_date');
+
+            $recentReportsQ = $recentReportsQc->unionAll($recentReportsProd);
+        }
 
         $recentReportsL = LSLampGlassHeader::select(
             'id',
@@ -51,7 +97,7 @@ class DashboardController extends Controller
 
         $recentReports = $recentReportsQ->unionAll($recentReportsL)
             ->orderBy('checked_date', 'desc')
-            ->take(5)
+            ->take(10)
             ->get()
             ->map(function ($report) {
                 return [

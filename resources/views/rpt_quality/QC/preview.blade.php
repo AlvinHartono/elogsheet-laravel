@@ -44,12 +44,16 @@
             {{-- Kanan atas --}}
             <div class="text-xs leading-tight text-right">
                 <div><strong>No. Form</strong> : {{ $formInfoFirst->form_no ?? '-' }}</div>
-                <div><strong>Rev</strong> :
-                    {{ $formInfoLast && $formInfoLast->revision_no !== null ? $formInfoLast->revision_no : '-' }}</div>
-                <div><strong>Eff. Date</strong> :
+                <div><strong>Issue. Date</strong> :
                     {{ $formInfoFirst && $formInfoFirst->date_issued
                         ? \Carbon\Carbon::parse($formInfoFirst->date_issued)->format('ymd')
                         : '-' }}
+                    <div><strong>Rev. No.</strong> :
+                        {{ '0' }}</div>
+                    <div><strong>Rev. Date.</strong> :
+                        {{ '-' }}</div>
+                    {{-- <div><strong>Rev. No.</strong> :
+                    {{ $formInfoLast && $formInfoLast->revision_no !== null ? $formInfoLast->revision_no : '-' }}</div> --}}
                 </div>
             </div>
         </div>

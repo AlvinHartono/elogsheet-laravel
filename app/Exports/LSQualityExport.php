@@ -21,6 +21,7 @@ class LSQualityExport implements FromCollection, WithHeadings, WithEvents
     public function collection()
     {
         return LSQualityReport::whereDate('transaction_date', $this->tanggal)
+            ->where('flag', 'T')
             ->orderBy('time', 'asc')
             ->get()
             ->map(function ($row) {

@@ -62,10 +62,10 @@ class LoginController extends Controller
     {
         // Validasi input
         $request->validate([
-            'username'       => 'required|string',
-            'password'       => 'required|string',
-            'business_unit'  => 'required|string',
-            'plant'          => 'required|string',
+            'username' => 'required|string',
+            'password' => 'required|string',
+            'business_unit' => 'required|string',
+            'plant' => 'required|string',
         ]);
 
         $credentials = $request->only('username', 'password');
@@ -97,24 +97,35 @@ class LoginController extends Controller
         session()->put([
             'business_unit_code' => $bu->bu_code ?? '-',
             'business_unit_name' => $bu->bu_name ?? '-',
-            'plant_code'         => $pl->plant_code ?? '-',
-            'plant_name'         => $pl->plant_name ?? '-',
+            'plant_code' => $pl->plant_code ?? '-',
+            'plant_name' => $pl->plant_name ?? '-',
         ]);
 
         // === Ambil menu sesuai role ===
+        // $menus = \App\Models\MMenu::where('isactive', 'T')
+        //     ->whereNull('parent_id')
+        //     ->whereHas('roleMenus', function ($query) {
+        //         $query->where('role_code', auth()->user()->roles);
+        //     })
+        //     ->get();
         $menus = \App\Models\MMenu::whereHas('roleMenus', function ($q) {
             $q->where('role_code', auth()->user()->roles);
         })
             ->where('isactive', 'T')
             ->whereNull('parent_id')
-            ->with(['children' => function ($q) {
-                $q->where('isactive', 'T')
-                    ->whereHas('roleMenus', function ($r) {
-                        $r->where('role_code', auth()->user()->roles);
-                    });
-            }])
+            ->with([
+                'children' => function ($q) {
+                    $q->where('isactive', 'T')
+                        ->whereHas('roleMenus', function ($r) {
+                            $r->where('role_code', auth()->user()->roles);
+                        });
+                }
+            ])
             ->orderBy('sort_order')
             ->get();
+
+
+
 
 
         session()->put('menus', $menus);
