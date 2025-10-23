@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\RptChangeProductController;
 use App\Http\Controllers\RptLogsheetDryFraController;
 use App\Http\Controllers\RptLogsheetPBFController;
 use Illuminate\Support\Facades\Route;
@@ -247,4 +248,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/export/excel', [RptLogsheetDryFraController::class, 'exportExcel'])->name('export.excel');
         Route::get('/export/pdf', [RptLogsheetDryFraController::class, 'exportPdf'])->name('export.pdf');
     });
+
+    Route::prefix('change-product-checklist')->name('change-product-checklist.')->group(function () {
+        Route::get('/', [RptChangeProductController::class, 'index'])->name('index');
+        Route::get('/{id}', [RptChangeProductController::class, 'show'])->name('show');
+        Route::post('/{id}/approve', [RptChangeProductController::class, 'approveReport'])->name('approve');
+        Route::post('/{id}/reject', [RptChangeProductController::class, 'rejectReport'])->name('reject');
+        Route::get('/export/preview', [RptChangeProductController::class, 'exportLayoutPreview'])->name('export.view');
+        Route::get('/export/excel', [RptChangeProductController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf', [RptChangeProductController::class, 'exportPdf'])->name('export.pdf');
+    });
+
+
 });
