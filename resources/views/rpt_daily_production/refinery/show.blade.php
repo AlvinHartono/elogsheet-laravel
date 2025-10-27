@@ -45,6 +45,7 @@
         {{-- BY PRODUCT (BP) --}}
         <x-section title="By Product">
             <x-info label="Tank Tujuan" :value="$report->bp_to_tank" />
+            <x-info label="By Product" :value="$report->bp_oil_type" />
             <x-info label="Awal Jam" :value="optional($report->bp_awal_jam)->format('H:i')" />
             <x-info label="Awal Flowmeter" :value="number_format($report->bp_awal_flowmeter)" />
             <x-info label="Akhir Jam" :value="optional($report->bp_akhir_jam)->format('H:i')" />

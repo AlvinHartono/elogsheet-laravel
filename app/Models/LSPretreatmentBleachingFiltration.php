@@ -25,6 +25,7 @@ class LSPretreatmentBleachingFiltration extends Model
         'refinery_machine',
         'time',
         'shift',
+        'oil_type_id',
         'oil_type',
         'pt_fit001',
         'pt_e001a_inlet',

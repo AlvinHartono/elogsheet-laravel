@@ -92,39 +92,6 @@ class RptLampGlassController extends Controller
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
-    }
 
     public function exportLayoutPreview(Request $request)
     {
@@ -151,7 +118,7 @@ class RptLampGlassController extends Controller
         // Tentukan month & year dari tanggal pertama
         $firstDate = $uniqueDates->first();
         $month = $firstDate ? \Carbon\Carbon::parse($firstDate)->format('F') : '';
-        $year  = $firstDate ? \Carbon\Carbon::parse($firstDate)->format('Y') : '';
+        $year = $firstDate ? \Carbon\Carbon::parse($firstDate)->format('Y') : '';
 
         return view('rpt_lamp_glass.preview', compact('documents', 'uniqueDates', 'month', 'year'));
     }

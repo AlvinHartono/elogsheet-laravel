@@ -48,7 +48,7 @@
 
         {{-- FINISHED GOODS OLEIN (FGH) --}}
         <x-section title="Finished Goods Flow (Olein)">
-            <x-info label="Oil Type FGH" :value="$report->oil_type_fgh" />
+            {{-- <x-info label="Oil Type FGH" :value="$report->oil_type_fgh" /> --}}
             <x-info label="FGH No" :value="$report->oil_type_fgh_no" />
             <x-info label="Tank Tujuan" :value="$report->oil_type_fgh_to_tank" />
             <x-info label="Awal Jam" :value="optional($report->oil_type_fgh_awal_jam)->format('H:i')" />

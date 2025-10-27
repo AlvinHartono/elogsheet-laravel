@@ -33,4 +33,9 @@ class LSMaintenanceChangeProductDetail extends Model
         return $this->belongsTo(LSMaintenanceChangeProductHeader::class, 'id_hdr', 'id');
     }
 
+    public function langkahKerja()
+    {
+        return $this->belongsTo(MLangkahKerja::class, 'check_item', 'code');
+    }
+
 }

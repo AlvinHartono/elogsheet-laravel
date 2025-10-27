@@ -252,11 +252,15 @@ Route::middleware('auth')->group(function () {
     Route::prefix('change-product-checklist')->name('change-product-checklist.')->group(function () {
         Route::get('/', [RptChangeProductController::class, 'index'])->name('index');
         Route::get('/{id}', [RptChangeProductController::class, 'show'])->name('show');
-        Route::post('/{id}/approve', [RptChangeProductController::class, 'approveReport'])->name('approve');
-        Route::post('/{id}/reject', [RptChangeProductController::class, 'rejectReport'])->name('reject');
-        Route::get('/export/preview', [RptChangeProductController::class, 'exportLayoutPreview'])->name('export.view');
+        Route::get('/export/preview/{id}', [RptChangeProductController::class, 'exportLayoutPreview'])->name('export.view');
         Route::get('/export/excel', [RptChangeProductController::class, 'exportExcel'])->name('export.excel');
-        Route::get('/export/pdf', [RptChangeProductController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/export/pdf/{id}', [RptChangeProductController::class, 'exportPdf'])->name('export.pdf');
+
+        Route::post('/{id}/verify-approve', [RptChangeProductController::class, 'verifyApproval'])->name('verify.approve');
+        Route::post('/{id}/verify-reject', [RptChangeProductController::class, 'verifyReject'])->name('verify.reject');
+
+        Route::post('/{id}/check-approve', [RptChangeProductController::class, 'checkApproval'])->name('check.approve');
+        Route::post('/{id}/check-reject', [RptChangeProductController::class, 'checkReject'])->name('check.reject');
     });
 
 

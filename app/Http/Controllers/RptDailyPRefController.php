@@ -38,7 +38,20 @@ class RptDailyPRefController extends Controller
      */
     public function show($id)
     {
-        $report = LSDailyProductionRefinery::findOrFail($id);
+        $baseSelect = [
+            't_daily_production_refinery.*',
+            't_daily_production_refinery.oil_type_rm AS oil_type_rm_id',
+            'm_product.raw_material AS oil_type_rm',
+            't_daily_production_refinery.oil_type_fg AS oil_type_fg_id',
+            'm_product.finish_good AS oil_type_fg',
+            't_daily_production_refinery.bp_oil_type AS bp_oil_type_id',
+            'm_product.by_product AS bp_oil_type',
+        ];
+        // $report = LSDailyProductionRefinery::findOrFail($id);
+        $report = LSDailyProductionRefinery::join('m_product', 't_daily_production_refinery.oil_type_rm', '=', 'm_product.id')
+            ->select($baseSelect)
+            ->where('t_daily_production_refinery.id', $id)
+            ->firstOrFail();
         return view('rpt_daily_production.refinery.show', compact('report'));
     }
 
@@ -208,22 +221,35 @@ class RptDailyPRefController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->roles;
-        $query = LSDailyProductionRefinery::query()->whereDate('posting_date', $tanggal);
+        // $query = LSDailyProductionRefinery::query()->whereDate('posting_date', $tanggal);
+        $query = LSDailyProductionRefinery::join('m_product', 't_daily_production_refinery.oil_type_rm', '=', 'm_product.id')
+            ->whereDate('t_daily_production_refinery.posting_date', $tanggal);
+
 
         if ($request->filled('filter_work_center')) {
-            $query->where('work_center', $request->filter_work_center);
+            $query->where('t_daily_production_refinery.work_center', $request->filter_work_center);
         }
 
         $query->where('t_daily_production_refinery.flag', 'T');
 
-        if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
-            // Join with m_roles_shift_prepared for shift filtering
-            $query->join('m_roles_shift_prepared', 't_daily_production_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_daily_production_refinery.*');
-        }
+        // if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
+        //     // Join with m_roles_shift_prepared for shift filtering
+        //     $query->join('m_roles_shift_prepared', 't_daily_production_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_daily_production_refinery.*');
+        // }
+        $baseSelect = [
+            't_daily_production_refinery.*',
+            't_daily_production_refinery.oil_type_rm AS oil_type_rm_id',
+            'm_product.raw_material AS oil_type_rm',
+            't_daily_production_refinery.oil_type_fg AS oil_type_fg_id',
+            'm_product.finish_good AS oil_type_fg',
+            't_daily_production_refinery.bp_oil_type AS bp_oil_type_id',
+            'm_product.by_product AS bp_oil_type',
+        ];
 
-        return $query->reorder()->orderBy('shift', 'asc'); // Ordering by shift is sufficient here
+
+        return $query->select($baseSelect);
     }
 
     /**
@@ -236,21 +262,33 @@ class RptDailyPRefController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->roles;
-        $query = LSDailyProductionRefinery::whereDate('posting_date', $tanggal);
+        // $query = LSDailyProductionRefinery::whereDate('posting_date', $tanggal);
+        $query = LSDailyProductionRefinery::join('m_product', 't_daily_production_refinery.oil_type_rm', '=', 'm_product.id')
+            ->whereDate('t_daily_production_refinery.posting_date', $tanggal);
 
         if ($workCenter)
-            $query->where('work_center', $workCenter);
+            $query->where('t_daily_production_refinery.work_center', $workCenter);
 
         $query->where('t_daily_production_refinery.flag', 'T');
 
-        if ($userRole === "MGR" or $userRole === "MGR_PROD") {
-            return $query->select('t_daily_production_refinery.*')->orderBy('shift')->get();
-        } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
-            return $query->join('m_roles_shift_prepared', 't_daily_production_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_daily_production_refinery.*')->orderBy('shift')->get();
-        }
-        return collect();
+        // if ($userRole === "MGR" or $userRole === "MGR_PROD") {
+        //     return $query->select('t_daily_production_refinery.*')->orderBy('shift')->get();
+        // } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+        //     return $query->join('m_roles_shift_prepared', 't_daily_production_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_daily_production_refinery.*')->orderBy('shift')->get();
+        // }
+
+        $baseSelect = [
+            't_daily_production_refinery.*',
+            't_daily_production_refinery.oil_type_rm AS oil_type_rm_id',
+            'm_product.raw_material AS oil_type_rm',
+            't_daily_production_refinery.oil_type_fg AS oil_type_fg_id',
+            'm_product.finish_good AS oil_type_fg',
+            't_daily_production_refinery.bp_oil_type AS bp_oil_type_id',
+            'm_product.by_product AS bp_oil_type',
+        ];
+        return $query->select($baseSelect)->orderBy('t_daily_production_refinery.shift')->get();
     }
 
     /**
@@ -364,7 +402,7 @@ class RptDailyPRefController extends Controller
         [$formInfoFirst, $formInfoLast] = $this->getFormInfo($tanggal, $workCenter);
 
         // Grouping is based on work_center, similar to refinery_machine in Deodorizing
-        $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect(); 
+        $groupedData = empty($workCenter) ? $data->groupBy('work_center') : collect();
 
         // Calculate shift summaries for all data
         // If a workCenter is selected, it only summarizes data for that WC.
@@ -406,31 +444,32 @@ class RptDailyPRefController extends Controller
         }
 
         $signatures = $this->getSignatures($tanggal, $workCenter);
-        
-        $pdf = Pdf::loadView($view, compact('data', 'groupedData','shiftSummaries','tanggal', 'workCenter', 'formInfoFirst', 'formInfoLast', 'signatures'))->setPaper('a3', 'landscape');
+
+        $pdf = Pdf::loadView($view, compact('data', 'groupedData', 'shiftSummaries', 'tanggal', 'workCenter', 'formInfoFirst', 'formInfoLast', 'signatures'))->setPaper('a3', 'landscape');
         return $pdf->stream("daily_production_refinery_report_{$tanggal}.pdf");
     }
 
-    private function getShiftSummaries(\Illuminate\Support\Collection $data){
+    private function getShiftSummaries(\Illuminate\Support\Collection $data)
+    {
         // 1. Group by shift
         $groupedByShift = $data->groupBy('shift');
 
-        
+
         // 2. Aggregate the data for each shift
         $shiftSummaries = $groupedByShift->map(function ($shiftReports, $shift) {
             $lastReport = $shiftReports->last();
             $budgetQty = optional($lastReport)->uu_budget_qty;
-            $totalCPO = $shiftReports->sum(fn ($report) => (float) $report->uu_total_cpo);
-            $totalSteam = $shiftReports->sum(fn ($report) => (float) $report->uu_total_steam);
-            $steamCpo = $shiftReports->sum(fn ($report) => (float) $report->uu_steam_cpo);
-            $yieldPercent = $shiftReports->sum(fn ($report) => (float) $report->uu_yield_percent);
-            
-            $beTotalBag = $shiftReports->sum(fn ($report) => (float) $report->be_total_bag);
-            $paTotal = $shiftReports->sum(fn ($report) => (float) $report->pa_total);
-            
+            $totalCPO = $shiftReports->sum(fn($report) => (float) $report->uu_total_cpo);
+            $totalSteam = $shiftReports->sum(fn($report) => (float) $report->uu_total_steam);
+            $steamCpo = $shiftReports->sum(fn($report) => (float) $report->uu_steam_cpo);
+            $yieldPercent = $shiftReports->sum(fn($report) => (float) $report->uu_yield_percent);
+
+            $beTotalBag = $shiftReports->sum(fn($report) => (float) $report->be_total_bag);
+            $paTotal = $shiftReports->sum(fn($report) => (float) $report->pa_total);
+
             $beLotBatchNumber = optional($lastReport)->be_lot_batch_number;
             $paLotBatchNumber = optional($lastReport)->pa_lot_batch_number;
-            
+
             $beJenis = optional($lastReport)->be_total_jenis;
 
             $beYieldPercent = optional($lastReport)->be_yield_percent ?? 0;
@@ -442,14 +481,14 @@ class RptDailyPRefController extends Controller
                 'uu_budget_qty' => $budgetQty, // Total Steam for the shift
                 'uu_total_cpo' => $totalCPO, // Total CPO for the shift
                 'uu_total_steam' => $totalSteam, // Total Steam for the shift
-                'uu_steam_cpo' => $steamCpo, 
-                'uu_yield_percent' => $yieldPercent, 
+                'uu_steam_cpo' => $steamCpo,
+                'uu_yield_percent' => $yieldPercent,
                 'uu_item' => $shiftReports->pluck('uu_item')->filter()->unique()->implode(', '), // Show unique items
-                
+
                 // Chemicals Summary (SUM)
                 'be_total_bag' => $beTotalBag,
                 'pa_total' => $paTotal,
-                
+
                 'be_lot_batch_number' => $beLotBatchNumber,
                 'pa_lot_batch_number' => $paLotBatchNumber,
 

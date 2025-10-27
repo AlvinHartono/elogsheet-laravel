@@ -43,7 +43,11 @@ class RptLogsheetPBFController extends Controller
      */
     public function show($id)
     {
-        $report = LSPretreatmentBleachingFiltration::findOrFail($id);
+        // $report = LSPretreatmentBleachingFiltration::findOrFail($id);
+        $report = LSPretreatmentBleachingFiltration::join('m_product', 't_pretreatment_bleaching_filtration.oil_type', '=', 'm_product.id')
+            ->select('t_pretreatment_bleaching_filtration.*', 't_pretreatment_bleaching_filtration.oil_type AS oil_type_id', 'm_product.raw_material AS oil_type')
+            ->where('t_pretreatment_bleaching_filtration.id', $id)
+            ->firstOrFail();
         return view('rpt_logsheetPBF.show', compact('report'));
     }
 
@@ -246,29 +250,37 @@ class RptLogsheetPBFController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->roles;
-        $query = LSPretreatmentBleachingFiltration::query()->whereDate('posting_date', $tanggal);
+        // $query = LSPretreatmentBleachingFiltration::query()->whereDate('posting_date', $tanggal);
+        $query = LSPretreatmentBleachingFiltration::join('m_product', 't_pretreatment_bleaching_filtration.oil_type', '=', 'm_product.id')
+            ->whereDate('t_pretreatment_bleaching_filtration.posting_date', $tanggal);
 
         if ($request->filled('filter_jam')) {
-            $query->where('time', $request->filter_jam);
+            $query->where('t_pretreatment_bleaching_filtration.time', $request->filter_jam);
         }
 
         if ($request->filled('filter_refinery_machine')) {
-            $query->where('refinery_machine', $request->filter_refinery_machine);
+            $query->where('t_pretreatment_bleaching_filtration.refinery_machine', $request->filter_refinery_machine);
         }
 
         $query->where('t_pretreatment_bleaching_filtration.flag', 'T');
 
-        if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
-            $query->join('m_roles_shift_prepared', 't_pretreatment_bleaching_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)
-                ->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_pretreatment_bleaching_filtration.*');
-        }
+        $baseSelect = [
+            't_pretreatment_bleaching_filtration.*',
+            't_pretreatment_bleaching_filtration.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
 
-        return $query->reorder()
+        // if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
+        //     $query->join('m_roles_shift_prepared', 't_pretreatment_bleaching_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)
+        //         ->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_pretreatment_bleaching_filtration.*');
+        // }
+
+        return $query->select($baseSelect)->reorder()
             ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
-            ->orderBy('shift', 'asc')
-            ->orderBy('time', 'asc');
+            ->orderBy('t_pretreatment_bleaching_filtration.shift', 'asc')
+            ->orderBy('t_pretreatment_bleaching_filtration.time', 'asc');
     }
 
     private function getShiftStatuses(string $tanggal): array
@@ -316,41 +328,52 @@ class RptLogsheetPBFController extends Controller
         $user = Auth::user();
         $userRole = $user->roles;
 
-        $query = LSPretreatmentBleachingFiltration::whereDate('posting_date', $tanggal);
+        // $query = LSPretreatmentBleachingFiltration::whereDate('posting_date', $tanggal);
+        $query = LSPretreatmentBleachingFiltration::join('m_product', 't_pretreatment_bleaching_filtration.oil_type', '=', 'm_product.id')
+            ->whereDate('t_pretreatment_bleaching_filtration.posting_date', $tanggal);
 
         if ($refineryMachine) {
-            $query->where('refinery_machine', $refineryMachine);
+            $query->where('t_pretreatment_bleaching_filtration.refinery_machine', $refineryMachine);
         }
 
         $query->where('t_pretreatment_bleaching_filtration.flag', 'T');
 
-        if ($userRole === "MGR" or $userRole === "MGR_PROD") {
-            return $query
-                ->select('t_pretreatment_bleaching_filtration.*')
-                ->orderByRaw("CASE
-                    WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
-                    WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
-                    WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
-                    ELSE 4 END")
-                ->orderBy('time')
-                ->get();
-        } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
-            return $query
-                ->join('m_roles_shift_prepared', 't_pretreatment_bleaching_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)
-                ->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_pretreatment_bleaching_filtration.*')
-                ->orderbyRaw(
-                    "CASE
-                WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
-                WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
-                WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
-                ELSE 4 END"
-                )
-                ->orderby('time')
-                ->get();
-        }
-        return collect();
+        // if ($userRole === "MGR" or $userRole === "MGR_PROD") {
+        //     return $query
+        //         ->select('t_pretreatment_bleaching_filtration.*')
+        //         ->orderByRaw("CASE
+        //             WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
+        //             WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
+        //             WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
+        //             ELSE 4 END")
+        //         ->orderBy('time')
+        //         ->get();
+        // } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+        //     return $query
+        //         ->join('m_roles_shift_prepared', 't_pretreatment_bleaching_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)
+        //         ->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_pretreatment_bleaching_filtration.*')
+        //         ->orderbyRaw(
+        //             "CASE
+        //         WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
+        //         WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
+        //         WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
+        //         ELSE 4 END"
+        //         )
+        //         ->orderby('time')
+        //         ->get();
+        // }
+
+        $baseSelect = [
+            't_pretreatment_bleaching_filtration.*',
+            't_pretreatment_bleaching_filtration.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
+        return $query->select($baseSelect)
+            ->reorder()
+            ->orderBy('t_pretreatment_bleaching_filtration.time', 'asc')
+            ->get();
     }
 
     private function getSignatures(string $tanggal, ?string $refineryMachine): array

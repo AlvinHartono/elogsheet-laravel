@@ -25,6 +25,7 @@ class LSQualityReport extends Model
         'transaction_date',
         'posting_date',
         'work_center',
+        'oil_type_id',
         'oil_type',
         'shift',
         'time',

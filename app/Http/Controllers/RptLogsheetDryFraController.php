@@ -35,7 +35,16 @@ class RptLogsheetDryFraController extends Controller
      */
     public function show($id)
     {
-        $report = LSDryFractionation::findOrFail($id);
+        $baseSelect = [
+            't_dry_fractionation.*',
+            't_dry_fractionation.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
+        // $report = LSDryFractionation::findOrFail($id);
+        $report = LSDryFractionation::join('m_product', 't_dry_fractionation.oil_type', '=', 'm_product.id')
+            ->select($baseSelect)
+            ->where('t_dry_fractionation.id', $id)
+            ->firstOrFail();
         return view('rpt_logsheetDryFra.show', compact('report'));
     }
 
@@ -195,15 +204,24 @@ class RptLogsheetDryFraController extends Controller
      * ========================================================================== */
     private function buildBaseQuery(Request $request, string $tanggal)
     {
-        $query = LSDryFractionation::query()->whereDate('posting_date', $tanggal);
+        // $query = LSDryFractionation::query()->whereDate('posting_date', $tanggal);
+
+        $query = LSDryFractionation::join('m_product', 't_dry_fractionation.oil_type', '=', 'm_product.id')
+            ->whereDate('t_dry_fractionation.posting_date', $tanggal);
 
         if ($request->filled('filter_work_center')) {
-            $query->where('work_center', $request->filter_work_center);
+            $query->where('t_dry_fractionation.work_center', $request->filter_work_center);
         }
 
-        $query->where('flag', 'T');
+        $query->where('t_dry_fractionation.flag', 'T');
 
-        return $query->orderBy('transaction_date', 'asc');
+        $baseSelect = [
+            't_dry_fractionation.*',
+            't_dry_fractionation.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
+
+        return $query->select($baseSelect)->orderBy('t_dry_fractionation.transaction_date', 'asc');
     }
 
     private function getSignatures(string $tanggal, ?string $workCenter): array

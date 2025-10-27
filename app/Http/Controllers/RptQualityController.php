@@ -70,13 +70,27 @@ class RptQualityController extends Controller
      */
     public function show($id)
     {
-        $report = LSQualityReport::findOrFail($id);
+        // $report = LSQualityReport::findOrFail($id);
+        // return view('rpt_quality.show', compact('report'));
+
+        $report = LSQualityReport::join('m_product', 't_quality_report_refinery.oil_type', '=', 'm_product.id')
+            ->select('t_quality_report_refinery.*', 't_quality_report_refinery.oil_type AS oil_type_id', 'm_product.raw_material AS oil_type')
+            ->where('t_quality_report_refinery.id', $id)
+            ->firstOrFail();
+
         return view('rpt_quality.show', compact('report'));
     }
 
     public function showQc($id)
     {
-        $report = LSQualityReportQc::findOrFail($id);
+        // $report = LSQualityReportQc::findOrFail($id);
+        // return view('rpt_quality.QC.show', compact('report'));
+
+        $report = LSQualityReportQc::join('m_product', 't_quality_report_qc.oil_type', '=', 'm_product.id')
+            ->select('t_quality_report_qc.*', 't_quality_report_qc.oil_type AS oil_type_id', 'm_product.raw_material AS oil_type')
+            ->where('t_quality_report_qc.id', $id)
+            ->firstOrFail();
+
         return view('rpt_quality.QC.show', compact('report'));
     }
 
@@ -500,44 +514,50 @@ class RptQualityController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->roles;
-        $query = LSQualityReport::query()->whereDate('posting_date', $tanggal);
+        // $query = LSQualityReport::query()->whereDate('posting_date', $tanggal);
+
+        $query = LSQualityReport::join('m_product', 't_quality_report_refinery.oil_type', '=', 'm_product.id')
+            ->whereDate('t_quality_report_refinery.posting_date', $tanggal);
 
         if ($request->filled('filter_jam')) {
-            $query->where('time', $request->filter_jam);
+            $query->where('t_quality_report_refinery.time', $request->filter_jam);
         }
 
         if ($request->filled('filter_work_center')) {
-            $query->where('work_center', $request->filter_work_center);
+            $query->where('t_quality_report_refinery.work_center', $request->filter_work_center);
         }
 
         // Tambahkan baris ini untuk filter flag
         $query->where('t_quality_report_refinery.flag', 'T');
 
-        // If the user is a Lead, join their assigned shifts
-        if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
-            $query->join('m_roles_shift_prepared', 't_quality_report_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)
-                ->where('m_roles_shift_prepared.isactive', 'T') // Or 'T', 'Y', etc.
-                ->select('t_quality_report_refinery.*'); // Important to prevent column conflicts
-        }
+        // Define the select statement
+        $baseSelect = [
+            't_quality_report_refinery.*',
+            't_quality_report_refinery.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
+
         // Tidak ada filter tambahan untuk manager.
-        return $query->reorder()
-            ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
-            ->orderBy('shift', 'asc')
-            ->orderBy('time', 'asc');
+        return $query->select($baseSelect)->reorder()
+            ->orderByRaw("CASE WHEN t_quality_report_refinery.time >= '08:00' THEN 0 ELSE 1 END")
+            ->orderBy('t_quality_report_refinery.shift', 'asc')
+            ->orderBy('t_quality_report_refinery.time', 'asc');
     }
 
     private function buildBaseQueryQc(Request $request, string $tanggal)
     {
 
-        $query = LSQualityReportQc::query()->whereDate('posting_date', $tanggal);
+        // $query = LSQualityReportQc::query()->whereDate('posting_date', $tanggal);
+
+        $query = LSQualityReportQc::join('m_product', 't_quality_report_qc.oil_type', '=', 'm_product.id')
+            ->whereDate('t_quality_report_qc.posting_date', $tanggal);
 
         if ($request->filled('filter_jam')) {
-            $query->where('time', $request->filter_jam);
+            $query->where('t_quality_report_qc.time', $request->filter_jam);
         }
 
         if ($request->filled('filter_work_center')) {
-            $query->where('work_center', $request->filter_work_center);
+            $query->where('t_quality_report_qc.work_center', $request->filter_work_center);
         }
 
         $user = Auth::user();
@@ -546,15 +566,13 @@ class RptQualityController extends Controller
         // Tambahkan baris ini untuk filter flag
         $query->where('t_quality_report_qc.flag', 'T');
 
-        if ($userRole === "LEAD" || $userRole === "LEAD_QC") {
-            $query->join('m_roles_shift_prepared', 't_quality_report_qc.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)
-                ->where('m_roles_shift_prepared.isactive', 'T') // Or 'T', 'Y', etc.
-                ->select('t_quality_report_qc.*');
-        }
-        // Tidak ada filter tambahan untuk manager.
-        // dd($query->toSql(), $query->getBindings(), Auth::user()->toArray());
-        return $query->reorder()
+        $baseSelect = [
+            't_quality_report_qc.*',
+            't_quality_report_qc.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
+
+        return $query->select($baseSelect)->reorder()
             ->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")
             ->orderBy('shift', 'asc')
             ->orderBy('time', 'asc');
@@ -628,7 +646,9 @@ class RptQualityController extends Controller
         $user = Auth::user();
         $userRole = $user->roles;
 
-        $query = LSQualityReport::whereDate('posting_date', $tanggal);
+        // $query = LSQualityReport::whereDate('posting_date', $tanggal);
+        $query = LSQualityReport::join('m_product', 't_quality_report_refinery.oil_type', '=', 'm_product.id')
+            ->whereDate('t_quality_report_refinery.posting_date', $tanggal);
 
         if ($workCenter) {
             $query->where('work_center', $workCenter);
@@ -636,46 +656,63 @@ class RptQualityController extends Controller
 
         $query->where('t_quality_report_refinery.flag', 'T');
 
-        if ($userRole === "MGR" or $userRole === "MGR_PROD") {
-            return $query->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
-                ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
-                ->orderByRaw("CASE
-                    WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
-                    WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
-                    WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
-                    ELSE 4 END")
-                ->orderBy('time')
-                ->get();
-        } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
-            return $query
-                ->join('m_roles_shift_prepared', 't_quality_report_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)
-                ->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_quality_report_refinery.*')
-                ->orderbyRaw(
-                    "CASE
-                WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
-                WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
-                WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
-                ELSE 4 END"
-                )
-                ->orderby('time')
-                ->get();
-        }
-        return collect();
+        $baseSelect = [
+            't_quality_report_refinery.*',
+            't_quality_report_refinery.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type'
+        ];
+
+        // if ($userRole === "MGR" or $userRole === "MGR_PROD") {
+        //     return $query->join('m_mastervalue', 't_quality_report_refinery.work_center', '=', 'm_mastervalue.code')
+        //         ->select('t_quality_report_refinery.*', 'm_mastervalue.name as refinery_name')
+        //         ->orderByRaw("CASE
+        //             WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
+        //             WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
+        //             WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
+        //             ELSE 4 END")
+        //         ->orderBy('time')
+        //         ->get();
+        // } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+        //     return $query
+        //         ->join('m_roles_shift_prepared', 't_quality_report_refinery.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)
+        //         ->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_quality_report_refinery.*')
+        //         ->orderbyRaw(
+        //             "CASE
+        //         WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1
+        //         WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2
+        //         WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3
+        //         ELSE 4 END"
+        //         )
+        //         ->orderby('time')
+        //         ->get();
+        // }
+        return $query->select($baseSelect)
+            ->orderBy('time')
+            ->collect();
     }
 
     private function getMainDataQc(string $tanggal, ?string $workCenter)
     {
-        $query = LSQualityReportQc::whereDate('posting_date', $tanggal);
+        // $query = LSQualityReportQc::whereDate('posting_date', $tanggal);
+
+        $query = LSQualityReportQc::join('m_product', 't_quality_report_qc.oil_type', '=', 'm_product.id')
+            ->whereDate('t_quality_report_qc.posting_date', $tanggal);
+
         if ($workCenter) {
-            $query->where('work_center', $workCenter);
+            $query->where('t_quality_report_qc.work_center', $workCenter);
         }
         $query->where('t_quality_report_qc.flag', 'T');
         return $query->join('m_mastervalue', 't_quality_report_qc.work_center', '=', 'm_mastervalue.code')
-            ->select('t_quality_report_qc.*', 'm_mastervalue.name as refinery_name')
+            ->select(
+                't_quality_report_qc.*',
+                't_quality_report_qc.oil_type AS oil_type_id',
+                'm_product.raw_material AS oil_type',
+                'm_mastervalue.name as refinery_name'
+            )
             ->orderByRaw("CASE WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1 WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2 WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3 ELSE 4 END")
-            ->orderBy('time')->get();
+            ->orderBy('t_quality_report_qc.time')->get();
     }
 
     private function getSignatures(string $tanggal, ?string $workCenter): array

@@ -30,33 +30,6 @@
                     </div>
                 </div>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('change-product-checklist.export.view') }}"
-                    class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
-                    </svg>
-                    View Layout
-                </a>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    {{-- Tombol Download --}}
-                    <a href="{{ route('change-product-checklist.export.pdf', ['filter_tanggal' => $selectedDate, 'mode' => 'preview']) }}"
-                        class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow transition"
-                        target="_blank">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 10l5 5 5-5M12 4v12" />
-                        </svg>
-                        Download PDF
-                    </a>
-                </div>
-            </div>
-
         </div>
 
         {{-- Filter --}}
@@ -98,56 +71,166 @@
                         <th class="px-4 py-2 border-b text-left">Tanggal</th>
                         <th class="px-4 py-2 border-b text-left">First Product</th>
                         <th class="px-4 py-2 border-b text-left">Next Product</th>
-                        <th class="px-4 py-2 border-b text-center">Status</th>
+                        {{-- === MODIFIED COLUMNS START === --}}
+                        <th class="px-4 py-2 border-b text-center">Verified Status</th>
+                        <th class="px-4 py-2 border-b text-center">Checked Status</th>
                         <th class="px-4 py-2 border-b text-center">Action</th>
+                        <th class="px-4 py-2 border-b text-center">Report</th> {{-- <-- NEW COLUMN --}}
+                        {{-- === MODIFIED COLUMNS END === --}}
                         <th class="px-4 py-2 border-b text-center">Detail</th>
                     </tr>
                 </thead>
                 <tbody class="text-sm text-gray-700">
                     @forelse ($headers as $index => $doc)
                         <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-gray-50' }} hover:bg-gray-100">
-                            <td class="px-4 py-2 border-b">{{ $index + 1 }}</td>
+                            <td class="px-4 py-2 border-b">
+                                {{ ($headers->currentPage() - 1) * $headers->perPage() + $index + 1 }}</td>
                             <td class="px-4 py-2 border-b">{{ $doc->id }}</td>
                             <td class="px-4 py-2 border-b">{{ $doc->plant }}</td>
                             <td class="px-4 py-2 border-b">{{ $doc->work_center }}</td>
                             <td class="px-4 py-2 border-b">
-                                {{ Carbon::parse($doc->check_date)->format('Y-m-d H:i') }}</td>
-                            <td class="px-4 py-2 border-b">{{ $doc->first_product }}</td>
-                            <td class="px-4 py-2 border-b">{{ $doc->next_product }}</td>
+                                {{ Carbon::parse($doc->transaction_date)->format('Y-m-d H:i') }}</td>
+                            <td class="px-4 py-2 border-b">{{ $doc->firstProduct?->raw_material }}</td>
+                            <td class="px-4 py-2 border-b">{{ $doc->nextProduct?->raw_material }}</td>
 
+                            {{-- === NEW "VERIFIED STATUS" COLUMN === --}}
                             <td class="px-4 py-2 border-b text-center">
-                                @if ($doc->checked_status == 'Approved')
-                                    <span class="px-2 py-1 text-xs rounded bg-green-100 text-green-700">Approved</span>
-                                @elseif ($doc->checked_status == 'Rejected')
-                                    <span class="px-2 py-1 text-xs rounded bg-red-100 text-red-700">Rejected</span>
-                                @else
-                                    <span class="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">Pending</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-2 border-b text-center">
-                                <div class="flex justify-center gap-2">
-                                    <form action="{{ route('change-product-checklist.approve', $doc->id) }}"
-                                        method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                            class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 shadow
-                       {{ $doc->checked_status ? 'opacity-50 cursor-not-allowed' : '' }}"
-                                            {{ $doc->checked_status ? 'disabled' : '' }}>
-                                            Approve
-                                        </button>
-                                    </form>
-
-                                    <form action="{{ route('change-product-checklist.reject', $doc->id) }}" method="POST">
-                                        @csrf
-                                        <button type="submit"
-                                            class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow
-                       {{ $doc->checked_status ? 'opacity-50 cursor-not-allowed' : '' }}"
-                                            {{ $doc->checked_status ? 'disabled' : '' }}>
-                                            Reject
-                                        </button>
-                                    </form>
+                                <div class="flex items-center justify-center gap-1">
+                                    @if ($doc->prepared_status == 'Approved')
+                                        <span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700">Approved</span>
+                                    @elseif ($doc->prepared_status == 'Rejected')
+                                        <span class="px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">Rejected</span>
+                                    @else
+                                        <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600">Pending</span>
+                                    @endif
                                 </div>
                             </td>
+
+                            {{-- === NEW "CHECKED STATUS" COLUMN === --}}
+                            <td class="px-4 py-2 border-b text-center">
+                                <div class="flex items-center justify-center gap-1 mt-1">
+                                    @if ($doc->checked_status == 'Approved')
+                                        <span
+                                            class="px-2 py-0.5 text-xs rounded bg-green-100 text-green-700">Approved</span>
+                                    @elseif ($doc->checked_status == 'Rejected')
+                                        <span class="px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">Rejected</span>
+                                    @else
+                                        <span class="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600">Pending</span>
+                                    @endif
+                                </div>
+                            </td>
+
+                            {{-- === "ACTION" COLUMN (Route names corrected) === --}}
+                            <td class="px-4 py-2 border-b text-center">
+                                <div class="flex justify-center gap-2">
+
+                                    {{-- === SHIFT LEADER (Verify) ACTIONS === --}}
+                                    @if (!$doc->prepared_status)
+                                        {{-- FIXED Route Name --}}
+                                        @if (auth()->user()->roles === 'LEAD' || auth()->user()->roles === 'LEAD_PROD')
+                                            <form action="{{ route('change-product-checklist.verify.approve', $doc->id) }}"
+                                                method="POST">
+                                                @csrf
+                                                <button type="submit"
+                                                    class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-blue-700 shadow"
+                                                    title="Shift Leader Approve">
+                                                    Approve
+                                                </button>
+                                            </form>
+                                            {{-- FIXED Route Name --}}
+                                            <form action="{{ route('change-product-checklist.verify.reject', $doc->id) }}"
+                                                method="POST">
+                                                @csrf
+                                                <button type="submit"
+                                                    class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow"
+                                                    title="Shift Leader Reject">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                        @else
+                                            {{-- Disabled for other roles (e.g., Manager) --}}
+                                            <button type="button"
+                                                class="px-3 py-1 bg-gray-400 text-white text-xs rounded shadow opacity-50 cursor-not-allowed"
+                                                disabled>
+                                                Approve
+                                            </button>
+                                            <button type="button"
+                                                class="px-3 py-1 bg-gray-400 text-white text-xs rounded shadow opacity-50 cursor-not-allowed"
+                                                disabled>
+                                                Reject
+                                            </button>
+                                        @endif
+
+                                        {{-- === MANAGER (CHECK) ACTIONS === --}}
+                                    @elseif ($doc->prepared_status == 'Approved' && !$doc->checked_status)
+                                        @if (auth()->user()->roles == 'MGR' || auth()->user()->roles == 'MGR_PROD')
+                                            <form action="{{ route('change-product-checklist.check.approve', $doc->id) }}"
+                                                method="POST">
+                                                @csrf
+                                                <button type="submit"
+                                                    class="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 shadow"
+                                                    title="Manager Approve">
+                                                    Approve
+                                                </button>
+                                            </form>
+                                            <form action="{{ route('change-product-checklist.check.reject', $doc->id) }}"
+                                                method="POST">
+                                                @csrf
+                                                <button type="submit"
+                                                    class="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow"
+                                                    title="Manager Reject">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                        @else
+                                            {{-- Disabled for other roles (e.g., Shift Leader) --}}
+                                            <button type="button"
+                                                class="px-3 py-1 bg-gray-400 text-white text-xs rounded shadow opacity-50 cursor-not-allowed"
+                                                disabled>
+                                                Approve
+                                            </button>
+                                            <button type="button"
+                                                class="px-3 py-1 bg-gray-400 text-white text-xs rounded shadow opacity-50 cursor-not-allowed"
+                                                disabled>
+                                                Reject
+                                            </button>
+                                        @endif
+
+                                        {{-- === FINAL STATUS (NO ACTIONS) === --}}
+                                    @else
+                                        <span class="text-xs text-gray-500">
+                                            @if ($doc->prepared_status == 'Rejected')
+                                                Rejected
+                                            @elseif ($doc->checked_status == 'Approved')
+                                                Approved
+                                            @elseif ($doc->checked_status == 'Rejected')
+                                                Rejected
+                                            @endif
+                                        </span>
+                                    @endif
+                                </div>
+                            </td>
+
+                            {{-- === NEW "REPORT" COLUMN === --}}
+                            <td class="px-4 py-2 border-b text-center">
+                                <div class="flex justify-center gap-2">
+                                    <!-- Preview Button -->
+                                    <a href="{{ route('change-product-checklist.export.view', ['id' => $doc->id, 'mode' => 'preview']) }}"
+                                        target="_blank"
+                                        class="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-gray-700 shadow"
+                                        title="Preview PDF">
+                                        Preview
+                                    </a>
+                                    <!-- Download Button -->
+                                    <a href="{{ route('change-product-checklist.export.pdf', ['id' => $doc->id]) }}"
+                                        class="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 shadow"
+                                        title="Download PDF">
+                                        Download
+                                    </a>
+                                </div>
+                            </td>
+
+                            {{-- === "DETAIL" COLUMN (Unchanged) === --}}
                             <td class="px-4 py-2 border-b text-center">
                                 <a href="{{ route('change-product-checklist.show', $doc->id) }}"
                                     class="text-blue-600 hover:text-blue-800 inline-flex items-center justify-center">
@@ -162,8 +245,8 @@
 
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">
-                                Tidak ada data untuk tanggal ini.
+                            <td colspan="12" class="px-4 py-6 border-b text-center text-gray-500">
+                                No data available for this date.
                             </td>
                         </tr>
                     @endforelse

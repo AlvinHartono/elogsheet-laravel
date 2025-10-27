@@ -137,6 +137,7 @@
                         <th class="px-2 py-2 border-b text-left">Time</th>
                         <th class="px-2 py-2 border-b text-left">Shift</th>
                         <th class="px-2 py-2 border-b text-left">Machine</th>
+                        <th class="px-2 py-2 border-b text-left">Oil Raw Material</th>
                         <th class="px-2 py-2 border-b text-left">Entry By</th>
                         <th class="px-2 py-2 border-b text-center">Leader Status</th>
                         <th class="px-2 py-2 border-b text-center">Manager Status</th>
@@ -156,6 +157,7 @@
                             <td class="px-2 py-2 border-b"><span
                                     class="inline-block px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">{{ $report->refinery_machine }}</span>
                             </td>
+                            <td class="px-2 py-2 border-b">{{ $report->oil_type }}</td>
                             <td class="px-2 py-2 border-b">{{ $report->entry_by }}</td>
                             <td class="px-2 py-2 border-b text-center">
                                 @if ($report->prepared_status == 'Approved')

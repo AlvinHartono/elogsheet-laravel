@@ -38,7 +38,22 @@ class RptDeodorizingController extends Controller
      */
     public function show($id)
     {
-        $report = LSDeodorizingFiltration::findOrFail($id);
+        // $report = LSDeodorizingFiltration::findOrFail($id);
+        $baseSelect = [
+            't_deodorizing_filtration.*',
+            't_deodorizing_filtration.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type',
+            't_deodorizing_filtration.oil_type_fg AS oil_type_fg_id',
+            'm_product.finish_good AS oil_type_fg',
+            't_deodorizing_filtration.oil_type_bp AS oil_type_bp_id',
+            'm_product.by_product AS oil_type_bp',
+        ];
+        $report = LSDeodorizingFiltration::join('m_product', 't_deodorizing_filtration.oil_type', '=', 'm_product.id')
+            ->select($baseSelect)
+            ->where('t_deodorizing_filtration.id', $id)
+            ->firstOrFail();
+
+
         return view('rpt_deodorizing.show', compact('report'));
     }
 
@@ -201,24 +216,38 @@ class RptDeodorizingController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->roles;
-        $query = LSDeodorizingFiltration::query()->whereDate('posting_date', $tanggal);
+        // $query = LSDeodorizingFiltration::query()->whereDate('posting_date', $tanggal);
+
+        $query = LSDeodorizingFiltration::join('m_product', 't_deodorizing_filtration.oil_type', '=', 'm_product.id')
+            ->whereDate('t_deodorizing_filtration.posting_date', $tanggal);
 
         if ($request->filled('filter_jam')) {
-            $query->where('time', $request->filter_jam);
+            $query->where('t_deodorizing_filtration.time', $request->filter_jam);
         }
         if ($request->filled('filter_refinery_machine')) {
-            $query->where('refinery_machine', $request->filter_refinery_machine);
+            $query->where('t_deodorizing_filtration.refinery_machine', $request->filter_refinery_machine);
         }
 
         $query->where('t_deodorizing_filtration.flag', 'T');
 
-        if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
-            $query->join('m_roles_shift_prepared', 't_deodorizing_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_deodorizing_filtration.*');
-        }
+        // if ($userRole === "LEAD" || $userRole === "LEAD_PROD") {
+        //     $query->join('m_roles_shift_prepared', 't_deodorizing_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_deodorizing_filtration.*');
+        // }
+        $baseSelect = [
+            't_deodorizing_filtration.*',
+            't_deodorizing_filtration.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type',
+            't_deodorizing_filtration.oil_type_fg AS oil_type_fg_id',
+            'm_product.finish_good AS oil_type_fg',
+            't_deodorizing_filtration.oil_type_bp AS oil_type_bp_id',
+            'm_product.by_product AS oil_type_bp',
+        ];
 
-        return $query->reorder()->orderByRaw("CASE WHEN time >= '08:00' THEN 0 ELSE 1 END")->orderBy('shift', 'asc')->orderBy('time', 'asc');
+        return $query
+            ->select($baseSelect)
+            ->orderBy('t_deodorizing_filtration.shift', 'asc')->orderBy('time', 'asc');
     }
 
     private function getShiftStatuses(string $tanggal): array
@@ -254,22 +283,36 @@ class RptDeodorizingController extends Controller
     {
         $user = Auth::user();
         $userRole = $user->roles;
-        $query = LSDeodorizingFiltration::whereDate('posting_date', $tanggal);
+        // $query = LSDeodorizingFiltration::whereDate('posting_date', $tanggal);
+        $query = LSDeodorizingFiltration::join('m_product', 't_deodorizing_filtration.oil_type', '=', 'm_product.id')
+            ->whereDate('t_deodorizing_filtration.posting_date', $tanggal);
+
 
         if ($refineryMachine)
-            $query->where('refinery_machine', $refineryMachine);
+            $query->where('t_deodorizing_filtration.refinery_machine', $refineryMachine);
 
         $query->where('t_deodorizing_filtration.flag', 'T');
-        $orderLogic = "CASE WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1 WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2 WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3 ELSE 4 END";
+        // $orderLogic = "CASE WHEN time BETWEEN '08:00:00' AND '15:59:59' THEN 1 WHEN time BETWEEN '16:00:00' AND '23:59:59' THEN 2 WHEN time BETWEEN '00:00:00' AND '07:59:59' THEN 3 ELSE 4 END";
 
-        if ($userRole === "MGR" or $userRole === "MGR_PROD") {
-            return $query->select('t_deodorizing_filtration.*')->orderByRaw($orderLogic)->orderBy('time')->get();
-        } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
-            return $query->join('m_roles_shift_prepared', 't_deodorizing_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
-                ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
-                ->select('t_deodorizing_filtration.*')->orderbyRaw($orderLogic)->orderby('time')->get();
-        }
-        return collect();
+        // if ($userRole === "MGR" or $userRole === "MGR_PROD") {
+        //     return $query->select('t_deodorizing_filtration.*')->orderByRaw($orderLogic)->orderBy('time')->get();
+        // } elseif ($userRole === "LEAD" or $userRole === "LEAD_PROD") {
+        //     return $query->join('m_roles_shift_prepared', 't_deodorizing_filtration.shift', '=', 'm_roles_shift_prepared.shift_code')
+        //         ->where('m_roles_shift_prepared.username', $user->username)->where('m_roles_shift_prepared.isactive', 'T')
+        //         ->select('t_deodorizing_filtration.*')->orderbyRaw($orderLogic)->orderby('time')->get();
+        // }
+
+        $baseSelect = [
+            't_deodorizing_filtration.*',
+            't_deodorizing_filtration.oil_type AS oil_type_id',
+            'm_product.raw_material AS oil_type',
+            't_deodorizing_filtration.oil_type_fg AS oil_type_fg_id',
+            'm_product.finish_good AS oil_type_fg',
+            't_deodorizing_filtration.oil_type_bp AS oil_type_bp_id',
+            'm_product.by_product AS oil_type_bp',
+        ];
+
+        return $query->select($baseSelect)->orderBy('t_deodorizing_filtration.time')->get();
     }
 
     private function getSignatures(string $tanggal, ?string $refineryMachine): array
