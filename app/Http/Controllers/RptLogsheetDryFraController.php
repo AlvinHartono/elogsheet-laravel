@@ -12,11 +12,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class RptLogsheetDryFraController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+
     public function index(Request $request)
     {
         $tanggal = $request->input('filter_tanggal', Carbon::today()->format('Y-m-d'));
@@ -289,13 +285,23 @@ class RptLogsheetDryFraController extends Controller
     // {
     //     $user = Auth::user();
     //     $userRole = $user->roles;
-    //     $query = LSDryFractionation::whereDate('posting_date', $tanggal);
+    //     // $query = LSDryFractionation::whereDate('posting_date', $tanggal);
+    //     $query = LSDryFractionation::join('m_product', 't_dry_fractionation.oil_type', '=', 'm_product.id')
+    //         ->whereDate('t_dry_fractionation.posting_date', $tanggal);
+
     //     if ($workCenter) {
-    //         $query->where('work_center', $workCenter);
+    //         $query->where('t_dry_fractionation.work_center', $workCenter);
     //     }
 
-    //     $query->where('flag', 'T');
+    //     $query->where('t_dry_fractionation.flag', 'T');
 
+    //     $baseSelect = [
+    //         't_dry_fractionation.*',
+    //         't_dry_fractionation.oil_type AS oil_type_id',
+    //         'm_product.raw_material AS oil_type'
+    //     ];
+
+    //     return $query->select($baseSelect)->orderBy('t_dry_fractionation.posting_date')->get();
 
     // }
 

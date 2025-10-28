@@ -2,7 +2,7 @@
     <table class="min-w-full border border-gray-400 text-center text-xs">
         <thead class="bg-gray-100">
             <tr>
-                <th rowspan="3" class="border p-1">Crystalizier (Batch #)</th>
+                <th class="border p-1">Crystalizier (Batch #)</th>
                 <th class="border p-1">Filling Start Time</th>
                 <th class="border p-1">Filling End Time</th>
                 <th class="border p-1">Colling Start Time</th>

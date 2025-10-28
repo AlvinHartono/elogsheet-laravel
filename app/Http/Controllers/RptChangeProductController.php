@@ -52,6 +52,7 @@ class RptChangeProductController extends Controller
             //         ->orWhereNotNull('checked_status');
             // })
             ->whereDate('transaction_date', $tanggal)
+            ->where('flag', 'T')
             ->orderBy('id', 'asc')
             ->paginate(10)->withQueryString();
 
