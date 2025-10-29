@@ -3,6 +3,7 @@
 use App\Http\Controllers\RptChangeProductController;
 use App\Http\Controllers\RptLogsheetDryFraController;
 use App\Http\Controllers\RptLogsheetPBFController;
+use App\Http\Controllers\RptStartupProduksiController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\MstBusinessUnitController;
@@ -249,6 +250,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/export/pdf', [RptLogsheetDryFraController::class, 'exportPdf'])->name('export.pdf');
     });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Logsheet: F/RFA-015 - Change Product Checklist
+    |--------------------------------------------------------------------------
+    */
     Route::prefix('change-product-checklist')->name('change-product-checklist.')->group(function () {
         Route::get('/', [RptChangeProductController::class, 'index'])->name('index');
         Route::get('/{id}', [RptChangeProductController::class, 'show'])->name('show');
@@ -263,5 +269,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/check-reject', [RptChangeProductController::class, 'checkReject'])->name('check.reject');
     });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Logsheet: F/RFA-016 - Start Up Produksi Checklist
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('startup-produksi-checklist')->name('startup-produksi-checklist.')->group(function () {
+        Route::get('/', [RptStartupProduksiController::class, 'index'])->name('index');
+        Route::get('/{id}', [RptStartupProduksiController::class, 'show'])->name('show');
+        Route::get('/export/preview/{id}', [RptStartupProduksiController::class, 'exportLayoutPreview'])->name('export.view');
+        Route::get('/export/excel', [RptStartupProduksiController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf/{id}', [RptStartupProduksiController::class, 'exportPdf'])->name('export.pdf');
 
+        Route::post('/{id}/verify-approve', [RptStartupProduksiController::class, 'verifyApproval'])->name('verify.approve');
+        Route::post('/{id}/verify-reject', [RptStartupProduksiController::class, 'verifyReject'])->name('verify.reject');
+
+        Route::post('/{id}/check-approve', [RptStartupProduksiController::class, 'checkApproval'])->name('check.approve');
+        Route::post('/{id}/check-reject', [RptStartupProduksiController::class, 'checkReject'])->name('check.reject');
+    });
 });
