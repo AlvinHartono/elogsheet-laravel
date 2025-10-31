@@ -6,7 +6,7 @@
 
     @php
         use Carbon\Carbon;
-        $selectedDate = request('tanggal', Carbon::today()->format('Y-m-d'));
+        $selectedDate = request('filter_tanggal', Carbon::today()->format('Y-m-d'));
     @endphp
 
     <div class="bg-white p-6 rounded shadow-md">
@@ -37,10 +37,49 @@
             <form method="GET" action="{{ route('startup-produksi-checklist.index') }}"
                 class="flex flex-wrap items-end gap-4">
                 <div class="w-full sm:w-44">
-                    <label for="filter_tanggal_awal" class="block text-sm font-medium text-gray-700">Tanggal
-                        Awal</label>
+                    <label for="filter_tanggal" class="block text-sm font-medium text-gray-700">Tanggal</label>
                     <input type="date" id="filter_tanggal" name="filter_tanggal" value="{{ $selectedDate }}"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                </div>
+                {{-- Filter Time --}}
+                <div class="w-full sm:w-32">
+                    <label for="filter_time" class="block text-sm font-medium text-gray-700">Time</label>
+                    <select id="filter_time" name="filter_time"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">Pilih Time</option>
+                        @for ($i = 0; $i < 24; $i++)
+                            @php $jam = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00'; @endphp
+                            <option value="{{ $jam }}" {{ request('filter_time') == $jam ? 'selected' : '' }}>
+                                {{ $jam }}
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+                {{-- Work Center Filter --}}
+                <div class="w-full sm:w-44">
+                    <label for="filter_work_center" class="block text-sm font-medium text-gray-700">Work Center</label>
+                    <select name="filter_work_center" id="filter_work_center"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">All</option>
+                        @foreach ($work_centers as $wc)
+                            <option value="{{ $wc->work_center }}"
+                                {{ $selectedWorkCenter == $wc->work_center ? 'selected' : '' }}>
+                                {{ $wc->work_center }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                {{-- First Product Filter --}}
+                <div class="w-full sm:w-44">
+                    <label for="filter_product" class="block text-sm font-medium text-gray-700">Product</label>
+                    <select name="filter_product" id="filter_product"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">All</option>
+                        @foreach ($products as $fp)
+                            <option value="{{ $fp->id }}"
+                                {{ $selectedProduct == $fp->raw_material ? 'selected' : '' }}>
+                                {{ $fp->raw_material }}</option>
+                        @endforeach
+                    </select>
                 </div>
 
                 {{-- Tombol Filter --}}
@@ -50,7 +89,7 @@
                         Filter
                     </button>
 
-                    @if (request()->has('tanggal'))
+                    @if (request()->has('filter_tanggal'))
                         <a href="{{ route('startup-produksi-checklist.index') }}"
                             class="inline-flex items-center px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-semibold rounded-lg shadow transition">
                             Reset
@@ -89,7 +128,7 @@
                             <td class="px-4 py-2 border-b">{{ $doc->work_center }}</td>
                             <td class="px-4 py-2 border-b">
                                 {{ Carbon::parse($doc->transaction_date)->format('Y-m-d H:i') }}</td>
-                            <td class="px-4 py-2 border-b">{{ $doc->product?->raw_material }}</td>
+                            <td class="px-4 py-2 border-b"> {{ $doc->oilProduct?->raw_material }}</td>
 
                             {{-- === NEW "VERIFIED STATUS" COLUMN === --}}
                             <td class="px-4 py-2 border-b text-center">
@@ -174,7 +213,8 @@
                                                     Approve
                                                 </button>
                                             </form>
-                                            <form action="{{ route('startup-produksi-checklist.check.reject', $doc->id) }}"
+                                            <form
+                                                action="{{ route('startup-produksi-checklist.check.reject', $doc->id) }}"
                                                 method="POST">
                                                 @csrf
                                                 <button type="submit"

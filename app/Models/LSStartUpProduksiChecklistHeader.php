@@ -55,12 +55,12 @@ class LSStartUpProduksiChecklistHeader extends Model
         'revision_date' => 'datetime',
     ];
 
-    public function detail()
+    public function details()
     {
         return $this->hasMany(LSStartUpProduksiChecklistDetail::class, 'id_hdr', 'id');
     }
 
-    public function product()
+    public function oilProduct()
     {
         return $this->belongsTo(MProduct::class, 'product', 'id');
     }

@@ -107,7 +107,7 @@
 
 <body>
     {{-- Header Table (Logo, Title, Form Info) --}}
-    <table class="w-full mb-4 no-border">
+    <table class="w-full no-border">
         <tbody>
             <tr style="vertical-align: top;">
                 {{-- Column 1: Logo and Bekasi --}}
@@ -153,7 +153,7 @@
     </table>
 
     {{-- Header Info Section --}}
-    <table class="mb-4">
+    <table class="">
         <tbody>
             <tr>
                 <td style="width: 50%;">
@@ -187,7 +187,7 @@
     @endphp
 
     {{-- Table 1: Refinery Plant --}}
-    <h4 class="font-bold mb-2 mt-4" style="font-size: 12px; margin-bottom: 4px;">Refinery Plant</h4>
+    <h4 class="font-bold mt-2" style="font-size: 12px; margin-bottom: 4px;">Refinery Plant</h4>
     <table class="w-full">
         <thead class="bg-gray">
             <tr>
@@ -232,7 +232,7 @@
     </table>
 
     {{-- Table 2: Fractionation --}}
-    <h4 class="font-bold mb-2 mt-6" style="font-size: 12px; margin-bottom: 4px;">Fractionation Plant</h4>
+    <h4 class="font-bold mt-2" style="font-size: 12px; margin-bottom: 4px;">Fractionation Plant</h4>
     <table class="w-full">
         <thead class="bg-gray">
             <tr>
@@ -277,7 +277,7 @@
     </table>
 
     {{-- Signature Section --}}
-    <table class="mt-10 no-border text-center text-xs">
+    <table class="mt-4 no-border text-center text-xs">
         <tbody>
             <tr>
                 <td class="no-border" style="width: 33.3%;">

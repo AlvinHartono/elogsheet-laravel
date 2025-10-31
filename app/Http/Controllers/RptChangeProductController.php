@@ -25,17 +25,27 @@ class RptChangeProductController extends Controller
         //
         $tanggal = $request->input('filter_tanggal');
         $time = $request->input('filter_time');
+        $selectedWorkCenter = $request->input('filter_work_center');
+        $selectedFirstProduct = $request->input('filter_first_product');
+        $selectedNextProduct = $request->input('filter_next_product');
 
-        $products = MProduct::select('*')->get();
+        // $products = MProduct::select('*')->get();
+        $products = MProduct::select('id', 'raw_material')->orderBy('raw_material')->get();
+
+        $work_centers = LSMaintenanceChangeProductHeader::select('work_center')
+            ->distinct()
+            ->whereNotNull('work_center')
+            ->orderBy('work_center')
+            ->get();
 
         if (!$tanggal) {
             $tanggal = now()->startOfMonth()->format('Y-m-d');
         }
         if (!$time) {
-            $time = '00:00:00';
+            $time = '';
         }
 
-        $headers = LSMaintenanceChangeProductHeader::with([
+        $sql = LSMaintenanceChangeProductHeader::with([
             'details' => function ($query) {
                 $query->select('id', 'id_hdr', 'check_item', 'status_item');
             }, // Loads the hasMany relationship
@@ -46,17 +56,28 @@ class RptChangeProductController extends Controller
                 $query->select('id', 'raw_material');
             } // Loads the other belongsTo relationship
         ])
-            ->whereHas('details') // This ensures we only get headers that HAVE details (like your INNER JOIN)
-            // ->where(function ($query) {
-            //     $query->whereNotNull('prepared_status')
-            //         ->orWhereNotNull('checked_status');
-            // })
+            ->whereHas('details')
             ->whereDate('transaction_date', $tanggal)
-            ->where('flag', 'T')
-            ->orderBy('id', 'asc')
+            ->where('flag', 'T');
+
+        if ($time && $time != "") {
+            $sql->where('transaction_time', $time);
+        }
+        if ($selectedWorkCenter) {
+            $sql->where('work_center', $selectedWorkCenter);
+        }
+        if ($selectedFirstProduct) {
+            $sql->where('first_product', $selectedFirstProduct);
+        }
+        if ($selectedNextProduct) {
+            $sql->where('next_product', $selectedNextProduct);
+        }
+
+        $headers = $sql->orderBy('id', 'asc')
             ->paginate(10)->withQueryString();
 
-        return view('rpt_change_product.index', compact('headers', 'products', 'tanggal', 'time'));
+
+        return view('rpt_change_product.index', compact('headers', 'products', 'work_centers', 'tanggal', 'time', 'selectedWorkCenter', 'selectedFirstProduct', 'selectedNextProduct'));
     }
 
 

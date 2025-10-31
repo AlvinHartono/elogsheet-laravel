@@ -93,7 +93,7 @@
         </x-section>
 
         <div class="mt-6 text-right">
-            <a href="{{ route('report-daily-production.fractionation.index') }}"
+            <a href="{{ url()->previous() }}"
                 class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"

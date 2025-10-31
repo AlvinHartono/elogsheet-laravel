@@ -6,7 +6,7 @@
     <div class="bg-white p-6 rounded shadow-md max-w-4xl mx-auto">
 
         <div class="mb-4">
-            <a href="{{ route('startup-produksi-checklist.index') }}"
+            <a href="{{ url()->previous() }}"
                 class="inline-flex items-center px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 text-sm font-semibold rounded-lg shadow transition">
                 &larr; Back to List
             </a>

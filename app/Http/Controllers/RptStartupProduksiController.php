@@ -20,31 +20,65 @@ class RptStartupProduksiController extends Controller
     {
         $tanggal = $request->input('filter_tanggal');
         $time = $request->input('filter_time');
+        $selectedWorkCenter = $request->input('filter_work_center');
+        $selectedProduct = $request->input('filter_product');
 
-        $products = MProduct::select('*')->get();
+        $products = MProduct::select('id', 'raw_material')->orderBy('raw_material')->get();
+
+        $work_centers = LSStartUpProduksiChecklistHeader::select('work_center')
+            ->distinct()
+            ->whereNotNull('work_center')
+            ->orderBy('work_center')
+            ->get();
 
         if (!$tanggal) {
             $tanggal = now()->startOfMonth()->format('Y-m-d');
         }
         if (!$time) {
-            $time = '00:00:00';
+            $time = '';
         }
 
-        $headers = LSStartUpProduksiChecklistHeader::with([
-            'detail' => function ($query) {
-                $query->select('id', 'id_hdr', 'check_item', 'status_item');
-            }, // Loads the hasMany relationship
-            'product' => function ($query) {
-                $query->select('id', 'raw_material');
-            }, // Loads the belongsTo relationship
-        ])
-            ->whereHas('detail') // This ensures we only get headers that HAVE details (like your INNER JOIN)
-            ->whereDate('transaction_date', $tanggal)
-            ->where('flag', 'T')
-            ->orderBy('id', 'asc')
-            ->paginate(10);
+        // $headers = LSStartUpProduksiChecklistHeader::with([
+        //     'detail' => function ($query) {
+        //         $query->select('id', 'id_hdr', 'check_item', 'status_item');
+        //     }, // Loads the hasMany relationship
+        //     'product' => function ($query) {
+        //         $query->select('id', 'raw_material');
+        //     }, // Loads the belongsTo relationship
+        // ])
+        //     ->whereHas('detail') // This ensures we only get headers that HAVE details (like your INNER JOIN)
+        //     ->whereDate('transaction_date', $tanggal)
+        //     ->where('flag', 'T')
+        //     ->paginate(10)->withQueryString();
 
-        return view('rpt_startup_produksi.index', compact('headers', 'products', 'tanggal', 'time'));
+        $sql = LSStartUpProduksiChecklistHeader::with([
+            'details' => function ($query) {
+                $query->select('id', 'id_hdr', 'check_item', 'status_item');
+            },
+            'oilProduct' => function ($query) {
+                $query->select('id', 'raw_material');
+            },
+        ])
+            ->whereHas('details')
+            ->whereDate('transaction_date', $tanggal)
+            ->where('flag', 'T');
+        if ($time && $time != "") {
+            $sql->where('transaction_time', $time);
+        }
+        if ($selectedWorkCenter) {
+            $sql->where('work_center', $selectedWorkCenter);
+        }
+        if ($selectedProduct) {
+            $sql->where('product', $selectedProduct);
+        }
+
+        $headers = $sql->orderBy('id', 'asc')
+            ->paginate(10)->withQueryString();
+
+        // dd('Fetched rows: ' . $headers->total());
+
+
+        return view('rpt_startup_produksi.index', compact('headers', 'products', 'work_centers', 'tanggal', 'time', 'selectedWorkCenter', 'selectedProduct'));
     }
 
     /**
@@ -57,13 +91,13 @@ class RptStartupProduksiController extends Controller
     {
         //
         $header = LSStartUpProduksiChecklistHeader::with([
-            'product' => fn($q) => $q->select('id', 'raw_material'),
-            'detail' => function ($query) {
+            'oilProduct' => fn($q) => $q->select('id', 'raw_material'),
+            'details' => function ($query) {
                 $query->with(['langkahKerjaStartup' => fn($q) => $q->select('code', 'name', 'sort_no')])
-                    ->join('m_langkahkerja_startup', 't_startup_produksi_checklist.check_item', '=', 'm_langkahkerja.code')
+                    ->join('m_langkahkerja_startup', 't_startup_produksi_checklist_detail.check_item', '=', 'm_langkahkerja_startup.code')
                     ->select('t_startup_produksi_checklist_detail.*')
                     // Order the final list of details by the 'sort_no'
-                    ->orderBy('m_langkahkerja.code', 'asc');
+                    ->orderBy('m_langkahkerja_startup.code', 'asc');
             }
 
         ])->findOrFail($id);
@@ -162,12 +196,12 @@ class RptStartupProduksiController extends Controller
     {
         // 1. Fetch the specific header by its ID, along with its related data
         $header = LSStartUpProduksiChecklistHeader::with([
-            'product',
-            'detail.langkahkerjaStartup' // Eager-load details and the related 'langkahKerja' for each detail
+            'oilProduct',
+            'details.langkahkerjaStartup' // Eager-load details and the related 'langkahKerja' for each detail
         ])->findOrFail($id);
 
         $sortedDetails = $header->details->filter(function ($detail) {
-            return $detail->langkahKerja !== null;
+            return $detail->langkahKerjaStartup !== null;
         })->sortBy('langkahkerjaStartup.code');
 
         // Fetch all questions, ordered by category and sort_no
@@ -190,14 +224,14 @@ class RptStartupProduksiController extends Controller
         // 1. Fetch the specific header by its ID.
         //    (Fixed the typo: 'langkahKerja' is now 'langkahkerja')
         $header = LSStartUpProduksiChecklistHeader::with([
-            'product',
-            'detail.langkahkerjaStartup'
+            'oilProduct',
+            'details.langkahkerjaStartup'
         ])->findOrFail($id); // <-- Use findOrFail to guarantee we have the report
 
         // 2. Sort details by sort_no from the related langkahKerja
         //    (I changed this to 'langkahkerja.code' to match your working preview function)
         $sortedDetails = $header->details->filter(function ($detail) {
-            return $detail->langkahkerja !== null;
+            return $detail->langkahkerjaStartup !== null;
         })->sortBy('langkahkerjaStartup.code'); // <-- MATCHED to your preview function
 
         // 3. Group them by category

@@ -208,7 +208,7 @@
                             @if ($detail->status_item == 'T')
                                 <span class="font-bold text-green symbol">&#10003;</span>
                             @elseif ($detail->status_item == 'F')
-                                <span class="font-bold text-red symbol">X</span>
+                                <span class="font-bold text-red symbol"></span>
                             @else
                                 <span class="text-xs">{{ $detail->status_item }}</span>
                             @endif
@@ -230,7 +230,7 @@
     </table>
 
     {{-- Table 2: Fractionation --}}
-    <h4 class="font-bold mb-2 mt-6" style="font-size: 12px; margin-bottom: 4px;">Fractionation Plant</h4>
+    <h4 class="font-bold mb-2 mt-2" style="font-size: 12px; margin-bottom: 4px;">Fractionation Plant</h4>
     <table class="w-full">
         <thead class="bg-gray">
             <tr>

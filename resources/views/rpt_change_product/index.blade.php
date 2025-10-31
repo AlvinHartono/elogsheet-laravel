@@ -6,7 +6,7 @@
 
     @php
         use Carbon\Carbon;
-        $selectedDate = request('tanggal', Carbon::today()->format('Y-m-d'));
+        $selectedDate = request('filter_tanggal', Carbon::today()->format('Y-m-d'));
     @endphp
 
     <div class="bg-white p-6 rounded shadow-md">
@@ -42,6 +42,61 @@
                     <input type="date" id="filter_tanggal" name="filter_tanggal" value="{{ $selectedDate }}"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
                 </div>
+                {{-- Filter Time --}}
+                <div class="w-full sm:w-32">
+                    <label for="filter_time" class="block text-sm font-medium text-gray-700">Time</label>
+                    <select id="filter_time" name="filter_time"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">Pilih Time</option>
+                        @for ($i = 0; $i < 24; $i++)
+                            @php $jam = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00'; @endphp
+                            <option value="{{ $jam }}" {{ request('filter_time') == $jam ? 'selected' : '' }}>
+                                {{ $jam }}
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+                {{-- Work Center Filter --}}
+                <div class="w-full sm:w-44">
+                    <label for="filter_work_center" class="block text-sm font-medium text-gray-700">Work Center</label>
+                    <select name="filter_work_center" id="filter_work_center"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">All</option>
+                        @foreach ($work_centers as $wc)
+                            <option value="{{ $wc->work_center }}"
+                                {{ $selectedWorkCenter == $wc->work_center ? 'selected' : '' }}>
+                                {{ $wc->work_center }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- First Product Filter --}}
+                <div class="w-full sm:w-44">
+                    <label for="filter_first_product" class="block text-sm font-medium text-gray-700">First Product</label>
+                    <select name="filter_first_product" id="filter_first_product"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">All</option>
+                        @foreach ($products as $fp)
+                            <option value="{{ $fp->id }}"
+                                {{ $selectedFirstProduct == $fp->raw_material ? 'selected' : '' }}>
+                                {{ $fp->raw_material }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Next Product Filter --}}
+                <div class="w-full sm:w-44">
+                    <label for="filter_next_product" class="block text-sm font-medium text-gray-700">Next Product</label>
+                    <select name="filter_next_product" id="filter_next_product"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                        <option value="">All</option>
+                        @foreach ($products as $np)
+                            <option value="{{ $np->id }}"
+                                {{ $selectedNextProduct == $np->raw_material ? 'selected' : '' }}>
+                                {{ $np->raw_material }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
                 {{-- Tombol Filter --}}
                 <div class="flex items-end gap-2">
@@ -69,6 +124,7 @@
                         <th class="px-4 py-2 border-b text-left">Plant</th>
                         <th class="px-4 py-2 border-b text-left">Work Center</th>
                         <th class="px-4 py-2 border-b text-left">Tanggal</th>
+                        <th class="px-4 py-2 border-b text-left">Time</th>
                         <th class="px-4 py-2 border-b text-left">First Product</th>
                         <th class="px-4 py-2 border-b text-left">Next Product</th>
                         {{-- === MODIFIED COLUMNS START === --}}
@@ -89,7 +145,9 @@
                             <td class="px-4 py-2 border-b">{{ $doc->plant }}</td>
                             <td class="px-4 py-2 border-b">{{ $doc->work_center }}</td>
                             <td class="px-4 py-2 border-b">
-                                {{ Carbon::parse($doc->transaction_date)->format('Y-m-d H:i') }}</td>
+                                {{ Carbon::parse($doc->transaction_date)->format('Y-m-d') }}</td>
+                            <td class="px-4 py-2 border-b">
+                                {{ Carbon::parse($doc->transaction_time)->format('H:i') }}</td>
                             <td class="px-4 py-2 border-b">{{ $doc->firstProduct?->raw_material }}</td>
                             <td class="px-4 py-2 border-b">{{ $doc->nextProduct?->raw_material }}</td>
 
@@ -128,7 +186,8 @@
                                     @if (!$doc->prepared_status)
                                         {{-- FIXED Route Name --}}
                                         @if (auth()->user()->roles === 'LEAD' || auth()->user()->roles === 'LEAD_PROD')
-                                            <form action="{{ route('change-product-checklist.verify.approve', $doc->id) }}"
+                                            <form
+                                                action="{{ route('change-product-checklist.verify.approve', $doc->id) }}"
                                                 method="POST">
                                                 @csrf
                                                 <button type="submit"
